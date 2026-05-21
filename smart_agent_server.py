@@ -272,6 +272,14 @@ async def learn_apply(req: LearnApplyRequest):
     )
 
 
+# ===== HEALTH CHECK =====
+
+@app.get("/api/status")
+async def health_check():
+    """Standard health check endpoint. Returns 200 when the server is running."""
+    return {"status": "ok", "version": "1.0.0"}
+
+
 # ===== SECURITY STATUS =====
 
 @app.get("/api/security/status")

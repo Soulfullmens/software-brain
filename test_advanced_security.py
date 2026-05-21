@@ -95,7 +95,7 @@ gateway.set_session("test_session")
 
 # 1. PII Masking
 messages = [
-    {"role": "user", "content": "My email is john.doe@example.com and my phone is +1-555-123-4567. Here is my key: sk-abc123def456ghi789jkl012mno345pqr"}
+    {"role": "user", "content": "My email is john.doe@example.com and my phone is +1-555-123-4567. Here is my key: FAKE-TEST-KEY-abc123def456ghi789jkl"}  # noqa: S105 — intentionally fake, tests masking
 ]
 
 verdict, _, masked = gateway.intercept_request("anthropic", "claude-3-5", messages)
@@ -104,7 +104,7 @@ test("Intercepts and modifies PII", verdict == GatewayVerdict.MODIFY)
 content = masked[0]["content"]
 test("Masks Email", "[EMAIL_REDACTED]" in content and "john.doe" not in content)
 test("Masks Phone", "[PHONE_REDACTED]" in content and "555-123" not in content)
-test("Masks API Key", "[API_KEY_REDACTED]" in content and "sk-abc" not in content)
+test("Masks API Key", "[API_KEY_REDACTED]" in content and "FAKE-TEST-KEY" not in content)
 
 # 2. Local provider bypasses PII
 messages_local = [{"role": "user", "content": "Analyze contact: admin@company.com"}]
