@@ -1,0 +1,88 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\cognition\prediction.py
+"""
+Prediction - Expectation About Future Reality
+
+A Prediction is a belief about what WILL happen.
+It is the bridge between World Model and Planning.
+
+RULES:
+- A prediction is a specific, falsifiable statement
+- It has a deadline (expected_by)
+- It has a probabilistic confidence
+- It does NOT decay like entities; it expires or resolves
+- It can be conditioned on an action ("If I do X, Y will happen")
+
+Outcome Lifecycle:
+- None -> Active
+- Confirmed -> Happened as expected (Reinforces model)
+- Denied -> Did NOT happen as expected (Reduces coherence, triggers learning)
+- Expired -> Deadline passed with no confirmation (Weak failure or irrelevant)
+"""
+
+from __future__ import annotations
+
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional, Literal
+
+# Outcome states
+PredictionOutcome = Literal["confirmed", "denied", "expired"]
+
+
+@dataclass
+class Prediction:
+    """
+    A specific expectation about the future.
+    """
+    id: str
+    statement: str
+    probability: float
+    created_at: datetime
+    expected_by: datetime
+    
+    # Optional: If this prediction depends on an action
+    # For v0 this is just a string ID/description
+    conditioned_on_action: Optional[str] = None
+    
+    # Lifecycle state
+    outcome: Optional[PredictionOutcome] = None
+    outcome_time: Optional[datetime] = None
+    
+    @classmethod
+    def create(
+        cls,
+        statement: str,
+        probability: float,
+        expected_by: datetime,
+        conditioned_on_action: Optional[str] = None
+    ) -> Prediction:
+        """Create a new prediction."""
+        return cls(
+            id=str(uuid.uuid4()),
+            statement=statement,
+            probability=probability,
+            created_at=datetime.now(),
+            expected_by=expected_by,
+            conditioned_on_action=conditioned_on_action,
+        )
+    
+    def is_active(self) -> bool:
+        """Check if prediction is still pending."""
+        return self.outcome is None
+    
+    def mark_confirmed(self, time: Optional[datetime] = None) -> None:
+        """Mark as confirmed (happened)."""
+        self.outcome = "confirmed"
+        self.outcome_time = time or datetime.now()
+        
+    def mark_denied(self, time: Optional[datetime] = None) -> None:
+        """Mark as denied (did not happen / contradicted)."""
+        self.outcome = "denied"
+        self.outcome_time = time or datetime.now()
+        
+    def mark_expired(self, time: Optional[datetime] = None) -> None:
+        """Mark as expired (deadline passed)."""
+        self.outcome = "expired"
+        self.outcome_time = time or datetime.now()

@@ -1,0 +1,11 @@
+"""
+System Configuration
+
+Constraints:
+1. DEFAULT_LEARNING_MODE must be EVALUATE.
+"""
+from src.learning.learning_mode import LearningMode
+
+# CONSTANTS
+SYSTEM_NAME = "Software Brain v0"
+DEFAULT_LEARNING_MODE = LearningMode.EVALUATE # HARD CODED SAFETY

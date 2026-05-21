@@ -1,0 +1,86 @@
+# ═══════════════════════════════════════════════════════════
+# NETWORK EGRESS POLICY — Declarative Network Control
+# ═══════════════════════════════════════════════════════════
+#
+# Controls ALL outgoing network requests from the agent.
+# Unknown domains are BLOCKED and queued for operator approval.
+#
+# Glob patterns supported: *.google.com matches any subdomain.
+# ═══════════════════════════════════════════════════════════
+
+version: "1.0"
+policy_name: "agentic-engine-default"
+
+# ── ENFORCEMENT MODE ──
+# strict  = block unknown, queue for approval
+# permissive = allow unknown, log for review  
+# disabled = no network filtering
+mode: "strict"
+
+# ── ALLOWED DOMAINS ──
+# Agent can freely reach these (glob patterns supported)
+allowed_domains:
+  # LLM Providers
+  - "api.anthropic.com"
+  - "api.openai.com"
+  - "*.googleapis.com"
+  - "generativelanguage.googleapis.com"
+  - "localhost"
+  - "127.0.0.1"
+  
+  # Search & Knowledge
+  - "*.google.com"
+  - "*.bing.com"
+  - "*.duckduckgo.com"
+  - "*.wikipedia.org"
+  
+  # Development
+  - "*.github.com"
+  - "api.github.com"
+  - "*.githubusercontent.com"
+  - "*.stackexchange.com"
+  - "*.stackoverflow.com"
+  - "pypi.org"
+  - "*.npmjs.com"
+  
+  # Cloud Providers
+  - "*.nvidia.com"
+  - "build.nvidia.com"
+
+# ── BLOCKED DOMAINS ──
+# Always blocked, even if operator tries to approve
+blocked_domains:
+  - "*.malware.*"
+  - "*.phishing.*"
+  - "*.evil.com"
+  - "*.darknet.*"
+  - "*.torrent.*"
+  - "*.exploit.*"
+
+# ── ALLOWED PORTS ──
+allowed_ports:
+  - 80
+  - 443
+  - 8080
+  - 8443
+  - 11434   # Ollama default
+
+# ── RATE LIMITS ──
+rate_limits:
+  requests_per_minute: 60
+  requests_per_hour: 500
+  max_concurrent: 10
+
+# ── OPERATOR APPROVAL ──
+approval:
+  timeout_seconds: 300        # Auto-deny after 5 minutes
+  auto_approve_after: 3       # Auto-approve domain after 3 manual approvals
+  remember_approvals: true    # Persist approved domains
+  approval_expiry_hours: 24   # Approved domains expire after 24h
+
+# ── LOGGING ──
+logging:
+  log_all_requests: true
+  log_blocked: true
+  log_file: "logs/network_audit.jsonl"
+  max_log_size_mb: 50

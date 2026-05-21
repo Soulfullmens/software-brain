@@ -1,0 +1,49 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\embodiment\base.py
+"""
+Embodiment Interface - The Body Contract
+
+Defines how an agent inhabits a body.
+"""
+
+from abc import ABC, abstractmethod
+from typing import Set, Optional
+from src.agency.action import Action
+from src.perception.input_event import InputEvent
+
+
+class Embodiment(ABC):
+    """
+    Abstract base class for all bodies.
+    
+    A body is a capability provider. It translates abstract Actions
+    into concrete effects and returns feedback.
+    """
+    
+    @property
+    @abstractmethod
+    def embodiment_id(self) -> str:
+        """Unique ID of this body instance."""
+        pass
+        
+    @property
+    @abstractmethod
+    def capabilities(self) -> Set[str]:
+        """Set of action IDs this body can perform."""
+        pass
+        
+    @abstractmethod
+    def can_execute(self, action: Action) -> bool:
+        """Check if this body can perform the requested action."""
+        pass
+        
+    @abstractmethod
+    def execute(self, action: Action) -> Optional[InputEvent]:
+        """
+        Execute the action.
+        
+        Returns:
+            Optional InputEvent representing the immediate result/feedback.
+            This feeds back into Perception.
+        """
+        pass

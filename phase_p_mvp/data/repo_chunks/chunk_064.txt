@@ -1,0 +1,93 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\system\permissions.py
+"""
+Permission & Authority Engine
+
+Defines WHO is allowed to do WHAT.
+This is the security kernel of the agent.
+
+CONCEPTS:
+- AuthorityLevel: Hierarchy of trust (Owner > Admin > Agent > Guest)
+- PermissionPolicy: Rules defining allowed actions for each level
+- Audit: Every check is recorded
+"""
+
+from enum import IntEnum
+from dataclasses import dataclass, field
+from typing import Dict, Set, Optional
+
+
+class AuthorityLevel(IntEnum):
+    """
+    Hierarchy of authority.
+    Higher values = more power.
+    """
+    NONE = 0
+    GUEST = 10
+    AGENT = 50       # The agent acting autonomously
+    ADMIN = 90       # System administrators
+    OWNER = 100      # God mode (The User)
+
+
+@dataclass
+class PermissionPolicy:
+    """
+    Defines what action IDs are allowed for a given authority level.
+    """
+    # Map of AuthorityLevel -> Set of allowed action_ids
+    # If action_id is in the set, it allowed.
+    # Special wildcard "*" allows all.
+    allowed_actions: Dict[AuthorityLevel, Set[str]] = field(default_factory=dict)
+    
+    def allow(self, level: AuthorityLevel, action_id: str) -> None:
+        """Grant permission for an action to a level."""
+        if level not in self.allowed_actions:
+            self.allowed_actions[level] = set()
+        self.allowed_actions[level].add(action_id)
+
+    def check(self, level: AuthorityLevel, action_id: str) -> bool:
+        """
+        Check if an action is allowed at this authority level.
+        Checks current level and strictly lower levels? 
+        Usually higher levels inherit permissions? 
+        Yes, Owner can do what Agent can do.
+        """
+        # Check this level and all levels below it? 
+        # No, inheritance means: If I am OWNER, I have permissions of OWNER + ADMIN + AGENT...
+        # So we iterate all defined levels <= current_level?
+        # NO. We iterate levels <= current_level and collect permissions?
+        # Actually usually we just check if any level <= my_level grants it.
+        
+        for defined_level, actions in self.allowed_actions.items():
+            if level >= defined_level:
+                if "*" in actions or action_id in actions:
+                    return True
+        return False
+
+
+# Default Policy Factory
+def create_default_policy() -> PermissionPolicy:
+    """
+    Create the v0 safety policy.
+    
+    AGENT (50):
+    - Can ask questions
+    - Can generate predictions
+    - Can gather evidence (safe, read-only)
+    - NO modifications, NO external API calls (yet)
+    
+    OWNER (100):
+    - * (Everything)
+    """
+    policy = PermissionPolicy()
+    
+    # AGENT PERMISSIONS (Safe Sandbox)
+    policy.allow(AuthorityLevel.AGENT, "ask_clarification")
+    policy.allow(AuthorityLevel.AGENT, "generate_prediction")
+    policy.allow(AuthorityLevel.AGENT, "gather_evidence")
+    policy.allow(AuthorityLevel.AGENT, "resolve_contradiction") # Internal mainly
+    
+    # OWNER PERMISSIONS
+    policy.allow(AuthorityLevel.OWNER, "*")
+    
+    return policy

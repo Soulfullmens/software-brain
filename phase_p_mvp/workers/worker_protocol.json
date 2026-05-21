@@ -1,0 +1,15 @@
+{
+    "name": "worker_protocol",
+    "version": "0.1",
+    "description": "Protocol for worker responses",
+    "response_schema": {
+        "chunk_id": "string",
+        "facts": [
+            "string"
+        ],
+        "uncertainties": [
+            "string"
+        ],
+        "confidence": "float (0.0-1.0)"
+    }
+}

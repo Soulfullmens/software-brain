@@ -1,0 +1,129 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\learning\learning_engine.py
+"""
+Learning Engine - The Adaptation Loop
+
+Responsibilities:
+- Accept LearningSignals (failures, contradictions)
+- Update LearningPolicy parameters slowly
+- Persist policy state
+
+RULES:
+- Updates must be slow (learning rate)
+- Values must be bounded
+- No direct belief mutation
+"""
+
+import json
+import os
+from dataclasses import asdict
+from typing import Optional
+
+from .policy import LearningPolicy
+from .signals import LearningSignal
+from src.core.identity import Identity
+
+
+class LearningEngine:
+    """
+    Adapts belief formation policies based on performance signals.
+    """
+    
+    def __init__(self, identity: Optional[Identity] = None, persistence_path: Optional[str] = None):
+        self.policy = LearningPolicy()
+        self.identity = identity
+        self.persistence_path = persistence_path
+        
+        # Hyperparameters (Locked for v0)
+        self.LEARNING_RATE = 0.05  # Slow adaptation
+        self.MIN_TRUST = 0.1
+        self.MAX_TRUST = 1.0
+    
+    def learn(self, signal: LearningSignal) -> None:
+        """
+        Process a signal and update policy parameters.
+        """
+        if signal.type == "prediction_failure":
+            self._handle_prediction_failure(signal)
+        elif signal.type == "contradiction":
+            self._handle_contradiction(signal)
+            
+        # Auto-save if path configured
+        if self.persistence_path:
+            self.save()
+            
+    def _handle_prediction_failure(self, signal: LearningSignal):
+        """
+        Prediction failed.
+        1. Reduce global prediction bias (we were overconfident).
+        2. If source known, reduce source trust.
+        """
+        # Magnitude is the probability we assigned (0.0-1.0).
+        # Higher magnitude = bigger failure.
+        
+        # Update bias: If we failed, we were likely overconfident.
+        # Shift bias negative.
+        # delta = -1 * magnitude * learning_rate
+        # e.g. Failed a 0.9 pred -> shift -0.045
+        delta_bias = -1.0 * signal.magnitude * self.LEARNING_RATE
+        self.policy.prediction_bias += delta_bias
+        
+        # Clamp bias (-1.0 to 1.0)
+        self.policy.prediction_bias = max(-1.0, min(1.0, self.policy.prediction_bias))
+        
+        # Update source trust if known
+        if signal.source:
+            current_trust = self.policy.get_trust(signal.source)
+            # Reduce trust
+            # delta = -1 * magnitude * learning_rate
+            new_trust = current_trust - (signal.magnitude * self.LEARNING_RATE)
+            self._set_trust(signal.source, new_trust)
+
+    def _handle_contradiction(self, signal: LearningSignal):
+        """
+        Contradiction resolved against a source.
+        1. Reduce source trust.
+        """
+        if signal.source:
+            current_trust = self.policy.get_trust(signal.source)
+            # Magnitude is urgency (importance).
+            new_trust = current_trust - (signal.magnitude * self.LEARNING_RATE)
+            self._set_trust(signal.source, new_trust)
+
+    def _set_trust(self, source: str, value: float):
+        """Set trust with bounds."""
+        clamped = max(self.MIN_TRUST, min(self.MAX_TRUST, value))
+        self.policy.source_trust[source] = clamped
+
+    def save(self):
+        """Save policy to disk."""
+        if not self.persistence_path:
+            return
+            
+        data = asdict(self.policy)
+        # Ensure dir exists
+        os.makedirs(os.path.dirname(self.persistence_path), exist_ok=True)
+        with open(self.persistence_path, 'w') as f:
+            json.dump(data, f, indent=2)
+
+    def load(self):
+        """Load policy from disk."""
+        if not self.persistence_path or not os.path.exists(self.persistence_path):
+            return
+            
+        try:
+            with open(self.persistence_path, 'r') as f:
+                data = json.load(f)
+            
+            # Simple deserialization
+            self.policy.source_trust = data.get("source_trust", {})
+            self.policy.reinforcement_base = data.get("reinforcement_base", 0.1)
+            self.policy.reinforcement_slope = data.get("reinforcement_slope", 0.5)
+            self.policy.penalty_base = data.get("penalty_base", 0.1)
+            self.policy.penalty_slope = data.get("penalty_slope", 0.25)
+            self.policy.prediction_bias = data.get("prediction_bias", 0.0)
+            
+        except Exception as e:
+            # Fallback to default if corrupt
+            print(f"Failed to load learning policy: {e}")
+            self.policy = LearningPolicy()

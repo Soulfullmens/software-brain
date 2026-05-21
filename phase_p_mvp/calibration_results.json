@@ -1,0 +1,1239 @@
+{
+  "total_data_points": 46,
+  "repos_analyzed": [
+    "httpx",
+    "rich",
+    "textual",
+    "fastapi",
+    "paramiko",
+    "celery",
+    "scrapy",
+    "click"
+  ],
+  "distributions": {
+    "unique_caller_files": {
+      "count": 46,
+      "min": 1.0,
+      "max": 35.0,
+      "mean": 8.5217,
+      "median": 5.5,
+      "stdev": 8.7832,
+      "p25": 1.0,
+      "p75": 13.0,
+      "values": [
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        2.0,
+        2.0,
+        3.0,
+        3.0,
+        3.0,
+        4.0,
+        4.0,
+        4.0,
+        4.0,
+        5.0,
+        6.0,
+        6.0,
+        6.0,
+        7.0,
+        8.0,
+        9.0,
+        9.0,
+        9.0,
+        10.0,
+        10.0,
+        12.0,
+        13.0,
+        13.0,
+        15.0,
+        18.0,
+        18.0,
+        19.0,
+        20.0,
+        21.0,
+        22.0,
+        28.0,
+        31.0,
+        35.0
+      ]
+    },
+    "dominant_file_ratio": {
+      "count": 46,
+      "min": 0.107,
+      "max": 1.0,
+      "mean": 0.534,
+      "median": 0.447,
+      "stdev": 0.3295,
+      "p25": 0.254,
+      "p75": 1.0,
+      "values": [
+        0.107,
+        0.113,
+        0.123,
+        0.132,
+        0.135,
+        0.141,
+        0.172,
+        0.182,
+        0.214,
+        0.238,
+        0.24,
+        0.254,
+        0.267,
+        0.267,
+        0.3,
+        0.323,
+        0.355,
+        0.375,
+        0.4,
+        0.417,
+        0.417,
+        0.421,
+        0.444,
+        0.45,
+        0.474,
+        0.476,
+        0.5,
+        0.5,
+        0.568,
+        0.571,
+        0.571,
+        0.667,
+        0.75,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        1.0
+      ]
+    },
+    "automatic_ratio": {
+      "count": 46,
+      "min": 0.0,
+      "max": 1.0,
+      "mean": 0.456,
+      "median": 0.488,
+      "stdev": 0.2843,
+      "p25": 0.258,
+      "p75": 0.649,
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.214,
+        0.226,
+        0.25,
+        0.253,
+        0.258,
+        0.267,
+        0.283,
+        0.292,
+        0.297,
+        0.312,
+        0.35,
+        0.403,
+        0.429,
+        0.429,
+        0.444,
+        0.476,
+        0.5,
+        0.5,
+        0.5,
+        0.5,
+        0.525,
+        0.526,
+        0.571,
+        0.583,
+        0.6,
+        0.6,
+        0.632,
+        0.649,
+        0.703,
+        0.737,
+        0.742,
+        0.75,
+        0.75,
+        0.818,
+        0.825,
+        0.867,
+        0.917,
+        1.0,
+        1.0
+      ]
+    },
+    "manual_ratio": {
+      "count": 46,
+      "min": 0.0,
+      "max": 0.034,
+      "mean": 0.0007,
+      "median": 0.0,
+      "stdev": 0.005,
+      "p25": 0.0,
+      "p75": 0.0,
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.034
+      ]
+    },
+    "reason_enum_count": {
+      "count": 46,
+      "min": 0.0,
+      "max": 8.0,
+      "mean": 1.3913,
+      "median": 0.0,
+      "stdev": 3.0658,
+      "p25": 0.0,
+      "p75": 0.0,
+      "values": [
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        8.0,
+        8.0,
+        8.0,
+        8.0,
+        8.0,
+        8.0,
+        8.0,
+        8.0
+      ]
+    }
+  },
+  "empirical_params": {
+    "unique_caller_files": {
+      "empirical_center": 5.5,
+      "empirical_steepness": 0.33,
+      "iqr": 12.0,
+      "spread_type": "wide"
+    },
+    "dominant_file_ratio": {
+      "empirical_center": 0.447,
+      "empirical_steepness": 5.36,
+      "iqr": 0.746,
+      "spread_type": "moderate"
+    },
+    "automatic_ratio": {
+      "empirical_center": 0.488,
+      "empirical_steepness": 10.23,
+      "iqr": 0.391,
+      "spread_type": "narrow"
+    },
+    "manual_ratio": {
+      "empirical_center": 0.0,
+      "empirical_steepness": 2.0,
+      "iqr": 0.0,
+      "spread_type": "narrow"
+    },
+    "reason_enum_count": {
+      "empirical_center": 0.0,
+      "empirical_steepness": 2.0,
+      "iqr": 0.0,
+      "spread_type": "narrow"
+    }
+  },
+  "comparisons": [
+    {
+      "metric": "unique_caller_files",
+      "handtuned_centers": [
+        2.0,
+        2.5,
+        3.0
+      ],
+      "empirical_center": 5.5,
+      "empirical_steepness": 0.33,
+      "iqr": 12.0,
+      "delta": 3.0
+    },
+    {
+      "metric": "dominant_file_ratio",
+      "handtuned_centers": [
+        0.5
+      ],
+      "empirical_center": 0.447,
+      "empirical_steepness": 5.36,
+      "iqr": 0.746,
+      "delta": -0.053
+    },
+    {
+      "metric": "automatic_ratio",
+      "handtuned_centers": [
+        0.4
+      ],
+      "empirical_center": 0.488,
+      "empirical_steepness": 10.23,
+      "iqr": 0.391,
+      "delta": 0.088
+    },
+    {
+      "metric": "manual_ratio",
+      "handtuned_centers": [
+        0.4
+      ],
+      "empirical_center": 0.0,
+      "empirical_steepness": 2.0,
+      "iqr": 0.0,
+      "delta": -0.4
+    },
+    {
+      "metric": "reason_enum_count",
+      "handtuned_centers": [
+        2.5
+      ],
+      "empirical_center": 0.0,
+      "empirical_steepness": 2.0,
+      "iqr": 0.0,
+      "delta": -2.5
+    }
+  ],
+  "per_repo_summary": {
+    "httpx": [
+      {
+        "method": "close",
+        "calls": 42
+      },
+      {
+        "method": "start",
+        "calls": 1
+      }
+    ],
+    "rich": [
+      {
+        "method": "close",
+        "calls": 15
+      },
+      {
+        "method": "stop",
+        "calls": 12
+      },
+      {
+        "method": "reset",
+        "calls": 4
+      },
+      {
+        "method": "lock",
+        "calls": 1
+      },
+      {
+        "method": "start",
+        "calls": 12
+      },
+      {
+        "method": "open",
+        "calls": 14
+      }
+    ],
+    "textual": [
+      {
+        "method": "close",
+        "calls": 15
+      },
+      {
+        "method": "shutdown",
+        "calls": 7
+      },
+      {
+        "method": "stop",
+        "calls": 103
+      },
+      {
+        "method": "reset",
+        "calls": 22
+      },
+      {
+        "method": "disconnect",
+        "calls": 1
+      },
+      {
+        "method": "lock",
+        "calls": 20
+      },
+      {
+        "method": "start",
+        "calls": 37
+      },
+      {
+        "method": "open",
+        "calls": 15
+      },
+      {
+        "method": "connect",
+        "calls": 2
+      }
+    ],
+    "fastapi": [
+      {
+        "method": "close",
+        "calls": 4
+      },
+      {
+        "method": "shutdown",
+        "calls": 2
+      },
+      {
+        "method": "open",
+        "calls": 1
+      }
+    ],
+    "paramiko": [
+      {
+        "method": "close",
+        "calls": 75
+      },
+      {
+        "method": "shutdown",
+        "calls": 5
+      },
+      {
+        "method": "disconnect",
+        "calls": 2
+      },
+      {
+        "method": "start",
+        "calls": 9
+      },
+      {
+        "method": "open",
+        "calls": 28
+      },
+      {
+        "method": "connect",
+        "calls": 16
+      }
+    ],
+    "celery": [
+      {
+        "method": "close",
+        "calls": 62
+      },
+      {
+        "method": "shutdown",
+        "calls": 31
+      },
+      {
+        "method": "stop",
+        "calls": 53
+      },
+      {
+        "method": "reset",
+        "calls": 15
+      },
+      {
+        "method": "disconnect",
+        "calls": 1
+      },
+      {
+        "method": "lock",
+        "calls": 40
+      },
+      {
+        "method": "unlock",
+        "calls": 2
+      },
+      {
+        "method": "start",
+        "calls": 99
+      },
+      {
+        "method": "open",
+        "calls": 24
+      },
+      {
+        "method": "connect",
+        "calls": 37
+      }
+    ],
+    "scrapy": [
+      {
+        "method": "close",
+        "calls": 64
+      },
+      {
+        "method": "shutdown",
+        "calls": 1
+      },
+      {
+        "method": "stop",
+        "calls": 19
+      },
+      {
+        "method": "reset",
+        "calls": 2
+      },
+      {
+        "method": "disconnect",
+        "calls": 4
+      },
+      {
+        "method": "start",
+        "calls": 59
+      },
+      {
+        "method": "open",
+        "calls": 31
+      },
+      {
+        "method": "connect",
+        "calls": 57
+      }
+    ],
+    "click": [
+      {
+        "method": "close",
+        "calls": 21
+      },
+      {
+        "method": "open",
+        "calls": 19
+      }
+    ]
+  },
+  "raw_data": [
+    {
+      "method": "close",
+      "metrics": {
+        "total_calls": 42,
+        "unique_caller_files": 6,
+        "dominant_file_ratio": 0.476,
+        "automatic_ratio": 0.476,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "_client.py"
+      },
+      "repo": "httpx"
+    },
+    {
+      "method": "start",
+      "metrics": {
+        "total_calls": 1,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "_urlparse.py"
+      },
+      "repo": "httpx"
+    },
+    {
+      "method": "close",
+      "metrics": {
+        "total_calls": 15,
+        "unique_caller_files": 4,
+        "dominant_file_ratio": 0.667,
+        "automatic_ratio": 0.867,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "markdown.py"
+      },
+      "repo": "rich"
+    },
+    {
+      "method": "stop",
+      "metrics": {
+        "total_calls": 12,
+        "unique_caller_files": 3,
+        "dominant_file_ratio": 0.417,
+        "automatic_ratio": 0.583,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "live.py"
+      },
+      "repo": "rich"
+    },
+    {
+      "method": "reset",
+      "metrics": {
+        "total_calls": 4,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.75,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "progress.py"
+      },
+      "repo": "rich"
+    },
+    {
+      "method": "lock",
+      "metrics": {
+        "total_calls": 1,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "markdown.py"
+      },
+      "repo": "rich"
+    },
+    {
+      "method": "start",
+      "metrics": {
+        "total_calls": 12,
+        "unique_caller_files": 4,
+        "dominant_file_ratio": 0.417,
+        "automatic_ratio": 0.917,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "progress.py"
+      },
+      "repo": "rich"
+    },
+    {
+      "method": "open",
+      "metrics": {
+        "total_calls": 14,
+        "unique_caller_files": 4,
+        "dominant_file_ratio": 0.571,
+        "automatic_ratio": 0.429,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "progress.py"
+      },
+      "repo": "rich"
+    },
+    {
+      "method": "close",
+      "metrics": {
+        "total_calls": 15,
+        "unique_caller_files": 9,
+        "dominant_file_ratio": 0.267,
+        "automatic_ratio": 0.6,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "web_driver.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "shutdown",
+      "metrics": {
+        "total_calls": 7,
+        "unique_caller_files": 2,
+        "dominant_file_ratio": 0.571,
+        "automatic_ratio": 0.571,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "command.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "stop",
+      "metrics": {
+        "total_calls": 103,
+        "unique_caller_files": 35,
+        "dominant_file_ratio": 0.107,
+        "automatic_ratio": 0.825,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "widget.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "reset",
+      "metrics": {
+        "total_calls": 22,
+        "unique_caller_files": 12,
+        "dominant_file_ratio": 0.182,
+        "automatic_ratio": 0.818,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "styles.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "disconnect",
+      "metrics": {
+        "total_calls": 1,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 1.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "app.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "lock",
+      "metrics": {
+        "total_calls": 20,
+        "unique_caller_files": 6,
+        "dominant_file_ratio": 0.45,
+        "automatic_ratio": 0.75,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "_markdown.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "start",
+      "metrics": {
+        "total_calls": 37,
+        "unique_caller_files": 19,
+        "dominant_file_ratio": 0.135,
+        "automatic_ratio": 0.649,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "_text_area.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "open",
+      "metrics": {
+        "total_calls": 15,
+        "unique_caller_files": 10,
+        "dominant_file_ratio": 0.267,
+        "automatic_ratio": 0.6,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "app.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "connect",
+      "metrics": {
+        "total_calls": 2,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.5,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "app.py"
+      },
+      "repo": "textual"
+    },
+    {
+      "method": "close",
+      "metrics": {
+        "total_calls": 4,
+        "unique_caller_files": 3,
+        "dominant_file_ratio": 0.5,
+        "automatic_ratio": 0.25,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "datastructures.py"
+      },
+      "repo": "fastapi"
+    },
+    {
+      "method": "shutdown",
+      "metrics": {
+        "total_calls": 2,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 1.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "routing.py"
+      },
+      "repo": "fastapi"
+    },
+    {
+      "method": "open",
+      "metrics": {
+        "total_calls": 1,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "background.py"
+      },
+      "repo": "fastapi"
+    },
+    {
+      "method": "close",
+      "metrics": {
+        "total_calls": 75,
+        "unique_caller_files": 18,
+        "dominant_file_ratio": 0.24,
+        "automatic_ratio": 0.253,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "agent.py"
+      },
+      "repo": "paramiko"
+    },
+    {
+      "method": "shutdown",
+      "metrics": {
+        "total_calls": 5,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "channel.py"
+      },
+      "repo": "paramiko"
+    },
+    {
+      "method": "disconnect",
+      "metrics": {
+        "total_calls": 2,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.5,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "transport.py"
+      },
+      "repo": "paramiko"
+    },
+    {
+      "method": "start",
+      "metrics": {
+        "total_calls": 9,
+        "unique_caller_files": 5,
+        "dominant_file_ratio": 0.444,
+        "automatic_ratio": 0.444,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "transport.py"
+      },
+      "repo": "paramiko"
+    },
+    {
+      "method": "open",
+      "metrics": {
+        "total_calls": 28,
+        "unique_caller_files": 13,
+        "dominant_file_ratio": 0.214,
+        "automatic_ratio": 0.214,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "sftp_client.py"
+      },
+      "repo": "paramiko"
+    },
+    {
+      "method": "connect",
+      "metrics": {
+        "total_calls": 16,
+        "unique_caller_files": 4,
+        "dominant_file_ratio": 0.5,
+        "automatic_ratio": 0.312,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "agent.py"
+      },
+      "repo": "paramiko"
+    },
+    {
+      "method": "close",
+      "metrics": {
+        "total_calls": 62,
+        "unique_caller_files": 22,
+        "dominant_file_ratio": 0.113,
+        "automatic_ratio": 0.403,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "bootsteps.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "shutdown",
+      "metrics": {
+        "total_calls": 31,
+        "unique_caller_files": 13,
+        "dominant_file_ratio": 0.355,
+        "automatic_ratio": 0.258,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "worker.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "stop",
+      "metrics": {
+        "total_calls": 53,
+        "unique_caller_files": 21,
+        "dominant_file_ratio": 0.132,
+        "automatic_ratio": 0.226,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "worker.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "reset",
+      "metrics": {
+        "total_calls": 15,
+        "unique_caller_files": 7,
+        "dominant_file_ratio": 0.4,
+        "automatic_ratio": 0.267,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "pidbox.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "disconnect",
+      "metrics": {
+        "total_calls": 1,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "signal.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "lock",
+      "metrics": {
+        "total_calls": 40,
+        "unique_caller_files": 15,
+        "dominant_file_ratio": 0.3,
+        "automatic_ratio": 0.35,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "result.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "unlock",
+      "metrics": {
+        "total_calls": 2,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 0,
+        "dominant_file": "base.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "start",
+      "metrics": {
+        "total_calls": 99,
+        "unique_caller_files": 31,
+        "dominant_file_ratio": 0.141,
+        "automatic_ratio": 0.283,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "worker.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "open",
+      "metrics": {
+        "total_calls": 24,
+        "unique_caller_files": 9,
+        "dominant_file_ratio": 0.375,
+        "automatic_ratio": 0.292,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "platforms.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "connect",
+      "metrics": {
+        "total_calls": 37,
+        "unique_caller_files": 9,
+        "dominant_file_ratio": 0.568,
+        "automatic_ratio": 0.297,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "amqp.py"
+      },
+      "repo": "celery"
+    },
+    {
+      "method": "close",
+      "metrics": {
+        "total_calls": 64,
+        "unique_caller_files": 18,
+        "dominant_file_ratio": 0.172,
+        "automatic_ratio": 0.703,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 8,
+        "dominant_file": "__init__.py"
+      },
+      "repo": "scrapy"
+    },
+    {
+      "method": "shutdown",
+      "metrics": {
+        "total_calls": 1,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.0,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 8,
+        "dominant_file": "crawler.py"
+      },
+      "repo": "scrapy"
+    },
+    {
+      "method": "stop",
+      "metrics": {
+        "total_calls": 19,
+        "unique_caller_files": 8,
+        "dominant_file_ratio": 0.421,
+        "automatic_ratio": 0.737,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 8,
+        "dominant_file": "crawler.py"
+      },
+      "repo": "scrapy"
+    },
+    {
+      "method": "reset",
+      "metrics": {
+        "total_calls": 2,
+        "unique_caller_files": 1,
+        "dominant_file_ratio": 1.0,
+        "automatic_ratio": 0.5,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 8,
+        "dominant_file": "protocol.py"
+      },
+      "repo": "scrapy"
+    },
+    {
+      "method": "disconnect",
+      "metrics": {
+        "total_calls": 4,
+        "unique_caller_files": 2,
+        "dominant_file_ratio": 0.75,
+        "automatic_ratio": 0.5,
+        "manual_ratio": 0.0,
+        "has_central_router": true,
+        "reason_enum_count": 8,
+        "dominant_file": "signalmanager.py"
+      },
+      "repo": "scrapy"
+    },
+    {
+      "method": "start",
+      "metrics": {
+        "total_calls": 59,
+        "unique_caller_files": 20,
+        "dominant_file_ratio": 0.254,
+        "automatic_ratio": 0.525,
+        "manual_ratio": 0.034,
+        "has_central_router": false,
+        "reason_enum_count": 8,
+        "dominant_file": "spidermw.py"
+      },
+      "repo": "scrapy"
+    },
+    {
+      "method": "open",
+      "metrics": {
+        "total_calls": 31,
+        "unique_caller_files": 10,
+        "dominant_file_ratio": 0.323,
+        "automatic_ratio": 0.742,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 8,
+        "dominant_file": "httpcache.py"
+      },
+      "repo": "scrapy"
+    },
+    {
+      "method": "connect",
+      "metrics": {
+        "total_calls": 57,
+        "unique_caller_files": 28,
+        "dominant_file_ratio": 0.123,
+        "automatic_ratio": 0.632,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 8,
+        "dominant_file": "closespider.py"
+      },
+      "repo": "scrapy"
+    },
+    {
+      "method": "close",
+      "metrics": {
+        "total_calls": 21,
+        "unique_caller_files": 6,
+        "dominant_file_ratio": 0.238,
+        "automatic_ratio": 0.429,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "_termui_impl.py"
+      },
+      "repo": "click"
+    },
+    {
+      "method": "open",
+      "metrics": {
+        "total_calls": 19,
+        "unique_caller_files": 3,
+        "dominant_file_ratio": 0.474,
+        "automatic_ratio": 0.526,
+        "manual_ratio": 0.0,
+        "has_central_router": false,
+        "reason_enum_count": 0,
+        "dominant_file": "_termui_impl.py"
+      },
+      "repo": "click"
+    }
+  ]
+}

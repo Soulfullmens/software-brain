@@ -1,0 +1,71 @@
+{
+  "method": "quantitative_structural_metrics",
+  "metrics_summary": {
+    "total_freeze_calls": 5,
+    "unique_caller_files": 3,
+    "caller_modules": [
+      "adjustment",
+      "autonomy",
+      "killproof"
+    ],
+    "autonomy_dominance": 0.4,
+    "automatic_ratio": 0.6,
+    "manual_ratio": 0.2,
+    "freeze_reasons": [
+      "BUDGET_EXHAUSTED",
+      "COHERENCE_COLLAPSE",
+      "CRITIQUE_OVERLOAD",
+      "GOAL_CONFLICT",
+      "MANUAL_FREEZE",
+      "PATTERN_ESCALATION"
+    ],
+    "has_central_router": false
+  },
+  "hypotheses": [
+    {
+      "type": "distributed",
+      "statement": "EVALUATE to FROZEN is driven by distributed local triggers across multiple independent modules",
+      "status": "supported",
+      "confidence": 0.7,
+      "supporting": 3,
+      "contradicting": 0,
+      "remaining_gaps": [],
+      "absence_penalties": 0
+    },
+    {
+      "type": "centralized",
+      "statement": "EVALUATE to FROZEN is driven by a centralized safety governor in a single authority module",
+      "status": "rejected",
+      "confidence": 0.0,
+      "supporting": 0,
+      "contradicting": 3,
+      "remaining_gaps": [
+        "A single module that mediates ALL freeze transitions",
+        "Other modules delegate to this authority rather than freezing directly",
+        "A centralized _freeze() method that all paths converge to"
+      ],
+      "absence_penalties": 2
+    },
+    {
+      "type": "manual",
+      "statement": "EVALUATE to FROZEN is primarily initiated by manual or higher-level authorization with automated triggers as secondary",
+      "status": "rejected",
+      "confidence": 0.0,
+      "supporting": 0,
+      "contradicting": 2,
+      "remaining_gaps": [
+        "Explicit permission or authority check before _freeze() calls",
+        "Human-initiated freeze mechanism (manual freeze, operator override)",
+        "Majority of freeze paths require external authorization"
+      ],
+      "absence_penalties": 1
+    }
+  ],
+  "probes_total": 0,
+  "probes_resolved": 0,
+  "confidence_spread": 0.7,
+  "disambiguated": true,
+  "winner": "distributed",
+  "winner_confidence": 0.7,
+  "margin": 0.7
+}

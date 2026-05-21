@@ -1,0 +1,315 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\learning\accumulation.py
+"""
+Blame Accumulation - Emotional Regulation
+
+This module sits between observation (26A Attribution) and mutation (26B.2).
+It prevents the agent from overreacting to single events.
+
+Key Concepts:
+1. PressureVector: Slow-moving accumulated blame (EMA)
+2. BlameAccumulator: Aggregates blame, decays over time, caps contribution
+
+Why this matters:
+- Blame from one event should not rewrite policy
+- Oscillation must be prevented
+- Severity (regret_score) must weight the contribution
+- Old failures should fade
+
+Without this layer:
+- Agent becomes reactive (trauma, not learning)
+- Authority thrashes between permissive/strict
+- Trust decays randomly
+"""
+
+from dataclasses import dataclass, field
+from typing import Dict, List
+from datetime import datetime
+
+from src.learning.attribution import BlameVector
+from src.learning.learning_mode import LearningMode
+
+
+@dataclass
+class PressureVector:
+    """
+    Slow-moving accumulated blame.
+    
+    This is like BlameVector but:
+    - Smoothed over time (EMA)
+    - Bounded
+    - Represents PRESSURE, not instant blame
+    
+    Pressure is what Phase 26B.2 will use to decide IF mutation is warranted.
+    """
+    # Accumulated pressure per dimension
+    planner_confidence: float = 0.0
+    risk_estimation: float = 0.0
+    authority_threshold: float = 0.0
+    goal_selection: float = 0.0
+    cost_projection: float = 0.0
+    
+    # Metadata
+    last_updated: datetime = field(default_factory=datetime.now)
+    update_count: int = 0
+    
+    @property
+    def max_pressure(self) -> float:
+        """What's the highest pressure in any dimension?"""
+        return max(
+            abs(self.planner_confidence),
+            abs(self.risk_estimation),
+            abs(self.authority_threshold),
+            abs(self.goal_selection),
+            abs(self.cost_projection)
+        )
+        
+    @property
+    def primary_pressure(self) -> str:
+        """
+        Which dimension has the most pressure?
+        
+        Tie-breaker uses DOMAIN PRIORITY (not alphabetical):
+        authority > risk > planner > goal > cost
+        
+        Rationale: Safety-related dimensions should be addressed
+        before efficiency optimizations.
+        """
+        # Order matters for tie-breaking: first in list wins if equal
+        PRIORITY_ORDER = [
+            ("authority_threshold", abs(self.authority_threshold)),
+            ("risk_estimation", abs(self.risk_estimation)),
+            ("planner_confidence", abs(self.planner_confidence)),
+            ("goal_selection", abs(self.goal_selection)),
+            ("cost_projection", abs(self.cost_projection))
+        ]
+        
+        # Find max pressure value
+        max_pressure = max(p for _, p in PRIORITY_ORDER)
+        
+        # Return first dimension that matches max (respects priority order)
+        for dim_name, pressure in PRIORITY_ORDER:
+            if abs(pressure - max_pressure) < 0.0001:  # Float tolerance
+                return dim_name
+                
+        # Fallback (shouldn't reach)
+        return PRIORITY_ORDER[0][0]
+        
+    def to_dict(self) -> dict:
+        return {
+            "planner_confidence": round(self.planner_confidence, 4),
+            "risk_estimation": round(self.risk_estimation, 4),
+            "authority_threshold": round(self.authority_threshold, 4),
+            "goal_selection": round(self.goal_selection, 4),
+            "cost_projection": round(self.cost_projection, 4),
+            "max_pressure": round(self.max_pressure, 4),
+            "primary_pressure": self.primary_pressure,
+            "update_count": self.update_count
+        }
+
+
+class BlameAccumulator:
+    """
+    Aggregates BlameVectors into slow-moving PressureVector.
+    
+    Core mechanics:
+    1. EMA (Exponential Moving Average) smoothing
+    2. Regret-weighted contribution (severity matters)
+    3. Per-event cap (no single event dominates)
+    4. Time decay (old failures fade)
+    """
+    
+    def __init__(
+        self,
+        ema_alpha: float = 0.1,       # How fast pressure responds (0=slow, 1=instant)
+        regret_scale: float = 0.5,    # How much regret amplifies contribution
+        max_single_contribution: float = 0.1,  # Cap per event
+        decay_rate: float = 0.99,     # Per-update decay
+        pressure_cap: float = 1.0,    # Max pressure per dimension
+        mode: LearningMode = LearningMode.LEARN
+    ):
+        self.ema_alpha = ema_alpha
+        self.regret_scale = regret_scale
+        self.max_single_contribution = max_single_contribution
+        self.decay_rate = decay_rate
+        self.pressure_cap = pressure_cap
+        self.mode = mode
+        
+        # The accumulated pressure
+        self.pressure = PressureVector()
+        
+        # History for debugging/auditing
+        self.history: List[dict] = []
+        
+    def accumulate(self, blame: BlameVector, regret_score: float) -> PressureVector:
+        """
+        Add a blame observation to the accumulated pressure.
+        
+        Behavior depends on LearningMode:
+        - FROZEN: No change. Returns current pressure.
+        - EVALUATE: Accumulate but DO NOT decay (observe buildup).
+        - LEARN: Full decay + accumulate logic.
+        """
+        if self.mode == LearningMode.FROZEN:
+            return self.pressure
+            
+        if self.mode == LearningMode.EVALUATE:
+            self._apply_without_decay(blame, regret_score)
+            return self.pressure
+            
+        # LEARN Mode (Standard Path)
+        
+        # 1. Weight by regret (severity matters)
+        weight = 1.0 + (regret_score * self.regret_scale)
+        
+        # 2. Calculate contribution (capped)
+        contribution = {
+            "planner_confidence": self._cap(blame.planner_confidence * weight),
+            "risk_estimation": self._cap(blame.risk_estimation * weight),
+            "authority_threshold": self._cap(blame.authority_threshold * weight),
+            "goal_selection": self._cap(blame.goal_selection * weight),
+            "cost_projection": self._cap(blame.cost_projection * weight)
+        }
+        
+        # 3. Decay existing pressure first (old failures fade)
+        self._decay()
+        
+        # 4. Apply EMA update: pressure = (1-α)*pressure + α*contribution
+        self._apply_ema(contribution)
+        
+        # 5. Cap total pressure
+        self._cap_pressure()
+        
+        # Update metadata
+        self.pressure.last_updated = datetime.now()
+        self.pressure.update_count += 1
+        
+        # Log for debugging
+        self.history.append({
+            "timestamp": datetime.now().isoformat(),
+            "regret_score": regret_score,
+            "contribution": contribution,
+            "pressure_after": self.pressure.to_dict(),
+            "mode": self.mode.value
+        })
+        
+        return self.pressure
+
+    def _apply_without_decay(self, blame: BlameVector, regret_score: float) -> None:
+        """Apply pressure update WITHOUT decay (EVALUATE mode)."""
+        weight = 1.0 + (regret_score * self.regret_scale)
+        contribution = {
+            "planner_confidence": self._cap(blame.planner_confidence * weight),
+            "risk_estimation": self._cap(blame.risk_estimation * weight),
+            "authority_threshold": self._cap(blame.authority_threshold * weight),
+            "goal_selection": self._cap(blame.goal_selection * weight),
+            "cost_projection": self._cap(blame.cost_projection * weight)
+        }
+        
+        # Skip Decay
+        # Apply EMA
+        self._apply_ema(contribution)
+        # Cap
+        self._cap_pressure()
+        
+        # Metadata
+        self.pressure.last_updated = datetime.now()
+        self.pressure.update_count += 1
+        
+        self.history.append({
+            "timestamp": datetime.now().isoformat(),
+            "regret_score": regret_score,
+            "contribution": contribution,
+            "pressure_after": self.pressure.to_dict(),
+            "mode": "evaluate"
+        })
+
+    def _apply_ema(self, contribution: Dict[str, float]) -> None:
+        """Apply EMA update using contribution dict."""
+        self.pressure.planner_confidence = self._ema(
+            self.pressure.planner_confidence, contribution["planner_confidence"]
+        )
+        self.pressure.risk_estimation = self._ema(
+            self.pressure.risk_estimation, contribution["risk_estimation"]
+        )
+        self.pressure.authority_threshold = self._ema(
+            self.pressure.authority_threshold, contribution["authority_threshold"]
+        )
+        self.pressure.goal_selection = self._ema(
+            self.pressure.goal_selection, contribution["goal_selection"]
+        )
+        self.pressure.cost_projection = self._ema(
+            self.pressure.cost_projection, contribution["cost_projection"]
+        )
+        
+    def _cap(self, value: float) -> float:
+        """Cap single contribution."""
+        if value > self.max_single_contribution:
+            return self.max_single_contribution
+        if value < -self.max_single_contribution:
+            return -self.max_single_contribution
+        return value
+        
+    def _ema(self, current: float, new: float) -> float:
+        """Exponential moving average update."""
+        return (1 - self.ema_alpha) * current + self.ema_alpha * new
+        
+    def _decay(self) -> None:
+        """Decay existing pressure (old failures fade)."""
+        self.pressure.planner_confidence *= self.decay_rate
+        self.pressure.risk_estimation *= self.decay_rate
+        self.pressure.authority_threshold *= self.decay_rate
+        self.pressure.goal_selection *= self.decay_rate
+        self.pressure.cost_projection *= self.decay_rate
+        
+    def _cap_pressure(self) -> None:
+        """Cap pressure per dimension."""
+        self.pressure.planner_confidence = max(
+            -self.pressure_cap, 
+            min(self.pressure_cap, self.pressure.planner_confidence)
+        )
+        self.pressure.risk_estimation = max(
+            -self.pressure_cap,
+            min(self.pressure_cap, self.pressure.risk_estimation)
+        )
+        self.pressure.authority_threshold = max(
+            -self.pressure_cap,
+            min(self.pressure_cap, self.pressure.authority_threshold)
+        )
+        self.pressure.goal_selection = max(
+            -self.pressure_cap,
+            min(self.pressure_cap, self.pressure.goal_selection)
+        )
+        self.pressure.cost_projection = max(
+            -self.pressure_cap,
+            min(self.pressure_cap, self.pressure.cost_projection)
+        )
+        
+    def get_pressure(self) -> PressureVector:
+        """Get current accumulated pressure."""
+        return self.pressure
+        
+    def should_trigger_adjustment(self, threshold: float = 0.3) -> bool:
+        """
+        Has pressure built up enough to warrant an adjustment?
+        
+        This is the gate for Phase 26B.2.
+        Mutation should ONLY happen when this returns True.
+        """
+        return self.pressure.max_pressure >= threshold
+        
+    def reset_dimension(self, dimension: str) -> None:
+        """
+        Reset pressure in a specific dimension after adjustment.
+        Called by Phase 26B.2 after mutation.
+        """
+        if dimension == "planner_confidence":
+            self.pressure.planner_confidence = 0.0
+        elif dimension == "risk_estimation":
+            self.pressure.risk_estimation = 0.0
+        elif dimension == "authority_threshold":
+            self.pressure.authority_threshold = 0.0
+        elif dimension == "goal_selection":
+            self.pressure.goal_selection = 0.0
+        elif dimension == "cost_projection":
+            self.pressure.cost_projection = 0.0

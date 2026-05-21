@@ -1,0 +1,44 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\learning\policy.py
+"""
+Learning Policy - Tunable Parameters for Cognition
+
+This object holds all the "knobs" that the learning engine can turn.
+It is serializable and pure data.
+"""
+
+from dataclasses import dataclass, field
+from typing import Dict
+
+
+@dataclass
+class LearningPolicy:
+    """
+    The configuration state for belief formation.
+    These values are read by Layer 2 to determine confidence updates.
+    """
+    
+    # 1. Source Trust (0.1 to 1.0)
+    # How much we trust a specific input source.
+    # Default is 1.0 (fully trusted)
+    source_trust: Dict[str, float] = field(default_factory=dict)
+    
+    # 2. Reinforcement Parameters (for Integration)
+    # Formula: strength = base + (confidence - 0.6) * slope
+    reinforcement_base: float = 0.1
+    reinforcement_slope: float = 0.5
+    
+    # 3. Penalty Parameters (for Integration)
+    # Formula: penalty = base + (0.4 - confidence) * slope
+    penalty_base: float = 0.1
+    penalty_slope: float = 0.25
+    
+    # 4. Prediction Bias (-1.0 to 1.0)
+    # Adjusts initial probability of predictions.
+    # >0 means we are generally underconfident (boost probs)
+    # <0 means we are generally overconfident (reduce probs)
+    prediction_bias: float = 0.0
+    
+    def get_trust(self, source: str) -> float:
+        """Get trust for a source, default 1.0 if unknown."""
+        return self.source_trust.get(source, 1.0)

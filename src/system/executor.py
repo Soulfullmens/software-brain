@@ -1,0 +1,119 @@
+"""
+System Executor - The Action Gatekeeper
+
+Routes intent (PlanProposal) to capability (Embodiment).
+Enforces permissions and safety.
+"""
+
+from typing import Optional
+from src.agency.action import PlanProposal
+from src.embodiment.base import Embodiment
+from src.perception.input_event import InputEvent
+from src.system.permissions import PermissionPolicy, create_default_policy
+from src.system.intent import IntentContext
+from src.system.audit import AuditLog, AuditEntry
+from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.system.autonomy import AutonomyRegulator
+    from src.system.temporal import TemporalGovernor
+    from src.system.initiative import InitiativeEngine
+
+
+class Executor:
+    """
+    Mediates between the Planner and the Body.
+    """
+    
+    def __init__(
+        self, 
+        body: Embodiment, 
+        policy: Optional[PermissionPolicy] = None, 
+        audit_log: Optional[AuditLog] = None,
+        autonomy: Optional['AutonomyRegulator'] = None,
+        temporal: Optional['TemporalGovernor'] = None,
+        initiative: Optional['InitiativeEngine'] = None
+    ):
+        self.body = body
+        self.policy = policy or create_default_policy()
+        self.audit_log = audit_log or AuditLog()
+        self.autonomy = autonomy
+        self.temporal = temporal
+        self.initiative = initiative
+        
+    def execute(
+        self, 
+        proposal: PlanProposal,
+        context: IntentContext
+    ) -> Optional[InputEvent]:
+        """
+        Attempt to execute the proposed plan.
+        
+        1. Check permissions (Security)
+        2. Check capabilities (Body)
+        3. Execute
+        4. Return feedback
+        """
+        action = proposal.action
+        decision_id = proposal.trace.id if proposal.trace else None
+        
+        # 0. Autonomy Check (Phase 16)
+        if self.autonomy:
+            can_exec, denial_reason = self.autonomy.can_execute(action.id)
+            if not can_exec:
+                print(f"[EXECUTOR] AUTONOMY DENIAL: {denial_reason}")
+                self._audit(context, action, allowed=False, reason=f"Autonomy: {denial_reason}", outcome="denied", decision_id=decision_id)
+                return None
+        
+        # 0.5 Temporal Check (Phase 18)
+        if self.temporal:
+            can_act, temporal_reason = self.temporal.can_act_now(action.id)
+            if not can_act:
+                print(f"[EXECUTOR] TEMPORAL DENIAL: {temporal_reason}")
+                self._audit(context, action, allowed=False, reason=f"Temporal: {temporal_reason}", outcome="denied", decision_id=decision_id)
+                return None
+        
+        # 1. Security Check
+        if not self.policy.check(context.authority, action.id):
+            print(f"[EXECUTOR] SECURITY DENIAL: '{context.authority.name}' cannot perform '{action.id}'")
+            self._audit(context, action, allowed=False, reason="Security Denial", outcome="denied", decision_id=decision_id)
+            return None
+            
+        # 2. Capability Check
+        if not self.body.can_execute(action):
+            print(f"[EXECUTOR] CAPABILITY DENIAL: Body '{self.body.embodiment_id}' cannot perform '{action.id}'")
+            self._audit(context, action, allowed=True, reason="Capability Missing", outcome="failed", decision_id=decision_id)
+            return None
+            
+        # 3. Execution
+        result = self.body.execute(action)
+        
+        # 4. Consume Budget (Phase 16)
+        if self.autonomy:
+            self.autonomy.consume_budget(action.id)
+            
+        # 5. Update Initiative (Phase 21B)
+        if self.initiative:
+            if result:
+                self.initiative.record_success()
+            else:
+                self.initiative.record_failure()
+        
+        # Audit Outcome
+        self._audit(context, action, allowed=True, reason=None, outcome="success" if result else "failed", decision_id=decision_id)
+        return result
+
+    def _audit(self, context: IntentContext, action, allowed: bool, reason: Optional[str], outcome: str, decision_id: Optional[str] = None):
+        entry = AuditEntry(
+            timestamp=datetime.now(),
+            context=context,
+            action_id=action.id,
+            target=action.target,
+            allowed=allowed,
+            denial_reason=reason,
+            body_id=self.body.embodiment_id,
+            outcome=outcome,
+            decision_id=decision_id
+        )
+        self.audit_log.log(entry)

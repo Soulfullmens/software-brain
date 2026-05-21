@@ -1,0 +1,4 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\core\__init__.py
+# Core module - Identity and Memory
+from .identity import Identity, AgentID, Goal, ValueWeights, OwnerBinding

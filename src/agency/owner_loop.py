@@ -1,0 +1,165 @@
+"""
+Layer 7: Owner Loop - Decision Queue & Protocol
+
+This module provides the communication channel between the agent and the owner.
+It is NOT a chat UI. It is a DETERMINISTIC PROTOCOL.
+
+Key Concepts:
+1. OwnerRequest: Agent asks owner for a decision.
+2. OwnerResponse: Owner provides verdict.
+3. DecisionQueue: FIFO queue of pending requests.
+
+The agent BLOCKS on blocking requests until the owner responds.
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+from enum import Enum
+import uuid
+
+from src.agency.authority import DecisionType, PermissionLevel
+
+
+class RequestStatus(Enum):
+    PENDING = "pending"
+    APPROVED = "approved"
+    DENIED = "denied"
+    EXPIRED = "expired"
+
+
+@dataclass
+class OwnerRequest:
+    """A request from the agent to the owner."""
+    id: str
+    decision_type: DecisionType
+    context: dict  # Goal ID, action details, etc.
+    risk_score: float
+    rationale: str  # Why the agent is asking
+    blocking: bool  # If True, agent waits for response
+    created_at: datetime = field(default_factory=datetime.now)
+    expires_at: Optional[datetime] = None  # Deadline for response
+    status: RequestStatus = RequestStatus.PENDING
+
+
+@dataclass
+class OwnerResponse:
+    """Owner's response to a request."""
+    request_id: str
+    approved: bool
+    comment: Optional[str] = None
+    responded_at: datetime = field(default_factory=datetime.now)
+
+
+class DecisionQueue:
+    """
+    FIFO queue of pending owner decisions.
+    
+    This is the INBOX for the owner.
+    The agent enqueues requests. The owner (or owner handler) dequeues responses.
+    """
+    
+    def __init__(self, default_expiry_minutes: int = 60):
+        self.pending: Dict[str, OwnerRequest] = {}
+        self.history: List[OwnerRequest] = []
+        self.default_expiry_minutes = default_expiry_minutes
+        
+    def enqueue(
+        self,
+        decision_type: DecisionType,
+        context: dict,
+        risk_score: float,
+        rationale: str,
+        blocking: bool = True,
+        expiry_minutes: Optional[int] = None
+    ) -> OwnerRequest:
+        """
+        Add a new request to the queue.
+        Returns the request (caller can poll/wait on it).
+        """
+        expiry = expiry_minutes or self.default_expiry_minutes
+        
+        request = OwnerRequest(
+            id=str(uuid.uuid4()),
+            decision_type=decision_type,
+            context=context,
+            risk_score=risk_score,
+            rationale=rationale,
+            blocking=blocking,
+            expires_at=datetime.now() + timedelta(minutes=expiry)
+        )
+        
+        self.pending[request.id] = request
+        return request
+    
+    def respond(self, request_id: str, approved: bool, comment: Optional[str] = None) -> bool:
+        """
+        Owner provides a response.
+        Updates the request status and moves to history.
+        """
+        if request_id not in self.pending:
+            return False
+            
+        request = self.pending[request_id]
+        request.status = RequestStatus.APPROVED if approved else RequestStatus.DENIED
+        
+        # Archive
+        self.history.append(request)
+        del self.pending[request_id]
+        
+        return True
+    
+    def poll(self, request_id: str) -> Optional[RequestStatus]:
+        """
+        Check the status of a request.
+        Returns None if request not found (could be in history or never existed).
+        """
+        if request_id in self.pending:
+            req = self.pending[request_id]
+            
+            # Check expiry
+            if req.expires_at and datetime.now() > req.expires_at:
+                req.status = RequestStatus.EXPIRED
+                self.history.append(req)
+                del self.pending[request_id]
+                return RequestStatus.EXPIRED
+                
+            return req.status
+            
+        # Check history
+        for req in self.history:
+            if req.id == request_id:
+                return req.status
+                
+        return None
+    
+    def get_pending_count(self) -> int:
+        return len(self.pending)
+    
+    def get_oldest_pending(self) -> Optional[OwnerRequest]:
+        """Get the oldest pending request (FIFO)."""
+        if not self.pending:
+            return None
+        return min(self.pending.values(), key=lambda r: r.created_at)
+    
+    def expire_stale(self) -> int:
+        """
+        Expire all requests past their deadline.
+        Returns count of expired requests.
+        """
+        expired_count = 0
+        now = datetime.now()
+        
+        to_expire = [
+            req_id for req_id, req in self.pending.items()
+            if req.expires_at and now > req.expires_at
+        ]
+        
+        for req_id in to_expire:
+            req = self.pending[req_id]
+            req.status = RequestStatus.EXPIRED
+            self.history.append(req)
+            del self.pending[req_id]
+            expired_count += 1
+            
+        return expired_count

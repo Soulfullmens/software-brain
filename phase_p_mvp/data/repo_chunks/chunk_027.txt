@@ -1,0 +1,271 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\embodiment\shell.py
+"""
+Shell Body - The First Real Consequences
+
+This is where the agent touches the real world beyond the sandbox.
+Shell commands are IRREVERSIBLE. There is no rollback for `rm`.
+
+Key Constraints:
+1. WHITELIST ONLY - No arbitrary command execution
+2. NO PIPES - No chaining
+3. NO REDIRECTS - No file creation via shell
+4. NO GLOBBING - No wildcards
+5. NO ENVIRONMENT MUTATION - No export, no PATH changes
+
+Every command is:
+- Irreversible by default
+- Authority-gated
+- Cost-tracked (real metrics)
+- Failure-captured
+
+Start with READ-ONLY:
+- ls, pwd, whoami, df, date, echo
+"""
+
+from typing import Set, Optional, Dict, List
+from datetime import datetime
+from pathlib import Path
+import subprocess
+import time
+import os
+import platform
+
+from src.embodiment.base import Embodiment
+from src.agency.action import Action
+from src.perception.input_event import InputEvent
+
+
+class ShellBody(Embodiment):
+    """
+    Restricted shell command executor.
+    
+    This is NOT a general-purpose shell.
+    It is a highly constrained interface for specific operations.
+    """
+    
+    # === WHITELIST: The ONLY commands allowed ===
+    READ_ONLY_COMMANDS = {
+        "ls", "pwd", "whoami", "df", "date", "echo",
+        "hostname", "uname", "cat", "head", "tail",
+        "wc", "which", "env", "printenv"
+    }
+    
+    # Write commands (require higher authority)
+    WRITE_COMMANDS = {
+        "mkdir", "touch", "cp", "mv"
+    }
+    
+    # NEVER ALLOWED (even if you try)
+    BLACKLIST_PATTERNS = [
+        "rm", "rmdir", "dd", "mkfs", "fdisk",
+        "chmod", "chown", "sudo", "su",
+        "wget", "curl", "ssh", "scp", "rsync",
+        ">", ">>", "|", ";", "&&", "||",
+        "`", "$(", "${", "eval", "exec",
+        "sh ", "bash ", "zsh ", "cmd ", "powershell"
+    ]
+    
+    def __init__(
+        self,
+        body_id: str = "shell_v0",
+        working_dir: Optional[Path] = None,
+        timeout_seconds: float = 30.0,
+        max_output_bytes: int = 100_000
+    ):
+        self._id = body_id
+        self._working_dir = working_dir or Path.cwd()
+        self._timeout = timeout_seconds
+        self._max_output = max_output_bytes
+        
+        self._capabilities = {"run_command"}
+        
+        # Resource accounting
+        self.commands_executed = 0
+        self.total_cpu_time = 0.0
+        self.total_wall_time = 0.0
+        self.total_output_bytes = 0
+        self.failures = 0
+        
+    @property
+    def embodiment_id(self) -> str:
+        return self._id
+        
+    @property
+    def capabilities(self) -> Set[str]:
+        return self._capabilities
+        
+    def can_execute(self, action: Action) -> bool:
+        """Can only execute run_command actions."""
+        return action.id == "run_command"
+        
+    def execute(self, action: Action) -> Optional[InputEvent]:
+        """
+        Execute a shell command.
+        
+        action.description = the command string
+        action.target = optional working directory
+        """
+        self.commands_executed += 1
+        
+        command = action.description
+        
+        # 1. Validate command against whitelist/blacklist
+        validation = self._validate_command(command)
+        if not validation["valid"]:
+            self.failures += 1
+            return self._error_event(
+                f"Command rejected: {validation['reason']}",
+                command=command
+            )
+            
+        # 2. Execute with resource tracking
+        start_time = time.time()
+        
+        try:
+            # Determine shell based on platform
+            if platform.system() == "Windows":
+                result = subprocess.run(
+                    command,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=self._timeout,
+                    cwd=str(self._working_dir)
+                )
+            else:
+                result = subprocess.run(
+                    command.split(),
+                    capture_output=True,
+                    text=True,
+                    timeout=self._timeout,
+                    cwd=str(self._working_dir)
+                )
+                
+            wall_time = time.time() - start_time
+            self.total_wall_time += wall_time
+            
+            # Track output size
+            output = result.stdout[:self._max_output]
+            stderr = result.stderr[:self._max_output]
+            output_bytes = len(result.stdout) + len(result.stderr)
+            self.total_output_bytes += output_bytes
+            
+            # 3. Build result event
+            success = result.returncode == 0
+            
+            if not success:
+                self.failures += 1
+                
+            return InputEvent(
+                source=self._id,
+                modality="text",
+                timestamp=datetime.now(),
+                payload={
+                    "type": "shell_result",
+                    "command": command,
+                    "exit_code": result.returncode,
+                    "stdout": output,
+                    "stderr": stderr,
+                    "wall_time_seconds": round(wall_time, 3),
+                    "output_bytes": output_bytes,
+                    "truncated": output_bytes > self._max_output,
+                    "success": success,
+                    # For learning pipeline
+                    "rollback_possible": False,  # Shell commands are NOT reversible
+                    "irreversible": True
+                }
+            )
+            
+        except subprocess.TimeoutExpired:
+            self.failures += 1
+            wall_time = time.time() - start_time
+            self.total_wall_time += wall_time
+            
+            return self._error_event(
+                f"Command timed out after {self._timeout}s",
+                command=command,
+                wall_time=wall_time
+            )
+            
+        except Exception as e:
+            self.failures += 1
+            wall_time = time.time() - start_time
+            self.total_wall_time += wall_time
+            
+            return self._error_event(
+                f"Execution error: {str(e)}",
+                command=command,
+                wall_time=wall_time
+            )
+            
+    def _validate_command(self, command: str) -> dict:
+        """
+        Validate command against whitelist/blacklist.
+        
+        Returns dict with 'valid' bool and 'reason' if invalid.
+        """
+        # Check for blacklisted patterns
+        for pattern in self.BLACKLIST_PATTERNS:
+            if pattern in command:
+                return {
+                    "valid": False,
+                    "reason": f"Blacklisted pattern: '{pattern}'"
+                }
+                
+        # Extract base command (first word)
+        parts = command.strip().split()
+        if not parts:
+            return {"valid": False, "reason": "Empty command"}
+            
+        base_cmd = parts[0]
+        
+        # Check against whitelist
+        all_allowed = self.READ_ONLY_COMMANDS | self.WRITE_COMMANDS
+        
+        if base_cmd not in all_allowed:
+            return {
+                "valid": False,
+                "reason": f"Command not in whitelist: '{base_cmd}'"
+            }
+            
+        return {"valid": True, "reason": None}
+        
+    def is_write_command(self, command: str) -> bool:
+        """Check if command is a write (vs read-only) command."""
+        parts = command.strip().split()
+        if not parts:
+            return False
+        return parts[0] in self.WRITE_COMMANDS
+        
+    def _error_event(
+        self,
+        message: str,
+        command: str = "",
+        wall_time: float = 0.0
+    ) -> InputEvent:
+        """Create error event."""
+        return InputEvent(
+            source=self._id,
+            modality="text",
+            timestamp=datetime.now(),
+            payload={
+                "type": "shell_error",
+                "command": command,
+                "error": message,
+                "wall_time_seconds": round(wall_time, 3),
+                "success": False,
+                "rollback_possible": False,
+                "irreversible": True
+            }
+        )
+        
+    def get_resource_usage(self) -> dict:
+        """Return resource accounting summary."""
+        return {
+            "commands_executed": self.commands_executed,
+            "total_wall_time": round(self.total_wall_time, 3),
+            "total_output_bytes": self.total_output_bytes,
+            "failures": self.failures,
+            "failure_rate": round(self.failures / max(1, self.commands_executed), 3)
+        }

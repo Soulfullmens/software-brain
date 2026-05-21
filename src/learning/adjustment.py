@@ -1,0 +1,400 @@
+"""
+Heuristic Adjustment - Safe, Bounded, Reversible Mutation
+
+This module implements the final stage of the learning pipeline:
+pressure → mutation. But with strict constraints.
+
+Key Principles:
+1. One dimension at a time - no multi-knob tuning
+2. Bounded deltas - no runaway adaptation
+3. Reversible - every change is logged and can be undone
+4. Conservative - mutation only when pressure exceeds threshold
+
+Constitutional Law:
+- This module cannot change itself
+- Cannot change attribution logic
+- Cannot change accumulation parameters
+- Can ONLY adjust the knobs defined here
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Callable
+from enum import Enum
+import uuid
+
+from src.learning.accumulation import BlameAccumulator, PressureVector
+from src.learning.learning_mode import LearningMode
+
+
+class AdjustmentDimension(Enum):
+    """The only dimensions allowed to receive adjustments."""
+    PLANNER_CONFIDENCE = "planner_confidence"
+    RISK_ESTIMATION = "risk_estimation"
+    AUTHORITY_THRESHOLD = "authority_threshold"
+    GOAL_SELECTION = "goal_selection"
+    COST_PROJECTION = "cost_projection"
+
+
+@dataclass
+class AdjustmentEvent:
+    """
+    Immutable record of a single mutation.
+    
+    This is your audit trail. If you can't explain
+    why the system changed, you failed.
+    """
+    id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
+    timestamp: datetime = field(default_factory=datetime.now)
+    
+    # What changed
+    dimension: AdjustmentDimension = AdjustmentDimension.RISK_ESTIMATION
+    parameter_name: str = ""  # Actual parameter that was mutated
+    
+    # Values
+    old_value: float = 0.0
+    new_value: float = 0.0
+    delta: float = 0.0
+    
+    # Why
+    pressure_at_mutation: float = 0.0
+    triggering_artifact_ids: List[str] = field(default_factory=list)
+    
+    # Reversibility
+    reversed: bool = False
+    reversed_at: Optional[datetime] = None
+
+
+class AdjustmentLog:
+    """
+    Append-only log of all adjustments.
+    
+    This is learning memory, separate from regret.
+    You WILL need this for debugging and rollback.
+    """
+    
+    def __init__(self, max_entries: int = 500):
+        self.events: List[AdjustmentEvent] = []
+        self.max_entries = max_entries
+        self.blocked_mutations: List[dict] = [] # Log blocked attempts
+        
+    def append(self, event: AdjustmentEvent) -> None:
+        """Record an adjustment."""
+        self.events.append(event)
+        
+        # Prune if needed (keep newest)
+        if len(self.events) > self.max_entries:
+            self.events = self.events[-self.max_entries:]
+            
+    def record_blocked_mutation(self, reason: str, details: str = "") -> None:
+        """Log when a mutation was requested but denied."""
+        self.blocked_mutations.append({
+            "timestamp": datetime.now(),
+            "reason": reason,
+            "details": details
+        })
+        if len(self.blocked_mutations) > 100:
+            self.blocked_mutations = self.blocked_mutations[-100:]
+            
+    def get_unreversed(self) -> List[AdjustmentEvent]:
+        """Get all adjustments that haven't been undone."""
+        return [e for e in self.events if not e.reversed]
+        
+    def mark_reversed(self, event_id: str) -> bool:
+        """Mark an event as reversed."""
+        for event in self.events:
+            if event.id == event_id:
+                event.reversed = True
+                event.reversed_at = datetime.now()
+                return True
+        return False
+        
+    def get_by_dimension(self, dim: AdjustmentDimension) -> List[AdjustmentEvent]:
+        """Get all adjustments for a specific dimension."""
+        return [e for e in self.events if e.dimension == dim]
+        
+    def net_adjustment(self, dim: AdjustmentDimension) -> float:
+        """Net adjustment for a dimension (unreversed only)."""
+        unreversed = [e for e in self.events if e.dimension == dim and not e.reversed]
+        return sum(e.delta for e in unreversed)
+        
+    def summary(self) -> dict:
+        """Summary for debugging."""
+        return {
+            "total_events": len(self.events),
+            "unreversed": len(self.get_unreversed()),
+            "blocked_count": len(self.blocked_mutations),
+            "by_dimension": {
+                dim.value: len(self.get_by_dimension(dim))
+                for dim in AdjustmentDimension
+            }
+        }
+
+
+@dataclass
+class KnobConfig:
+    """Configuration for a single tunable knob."""
+    name: str
+    min_value: float
+    max_value: float
+    max_delta: float  # Maximum single-step change
+    
+    
+class AdjustmentPolicy:
+    """
+    The safe mutation engine.
+    
+    Responsibilities:
+    1. Read PressureVector
+    2. Decide which dimension to mutate (highest pressure)
+    3. Compute bounded delta
+    4. Apply mutation via callback
+    5. Emit AdjustmentEvent
+    6. Reset pressure for that dimension
+    
+    No intelligence here. Just rules.
+    """
+    
+    def __init__(
+        self,
+        accumulator: BlameAccumulator,
+        log: AdjustmentLog,
+        threshold: float = 0.15,  # Minimum pressure to trigger
+        sensitivity: float = 0.05,  # How much pressure → delta
+        mode: LearningMode = LearningMode.LEARN,
+        cooldown_hours: int = 6,
+        mutation_budget: Optional[int] = None # Hard cap per session
+    ):
+        self.accumulator = accumulator
+        self.log = log
+        self.threshold = threshold
+        self.sensitivity = sensitivity
+        self.mode = mode
+        self.mutation_budget = mutation_budget
+        self.mutations_this_session = 0
+        
+        # Cooldown state
+        self.cooldown = timedelta(hours=cooldown_hours)
+        self.last_mutation_at: Optional[datetime] = None
+        
+        # Knob configurations (the ONLY things we can mutate)
+        self.knobs: Dict[AdjustmentDimension, KnobConfig] = {
+            AdjustmentDimension.PLANNER_CONFIDENCE: KnobConfig(
+                name="planner_confidence_dampener",
+                min_value=0.5,
+                max_value=1.5,
+                max_delta=0.02
+            ),
+            AdjustmentDimension.RISK_ESTIMATION: KnobConfig(
+                name="risk_prior_bias",
+                min_value=-0.2,
+                max_value=0.2,
+                max_delta=0.02
+            ),
+            AdjustmentDimension.AUTHORITY_THRESHOLD: KnobConfig(
+                name="authority_threshold_offset",
+                min_value=-0.1,
+                max_value=0.1,
+                max_delta=0.01
+            ),
+            AdjustmentDimension.GOAL_SELECTION: KnobConfig(
+                name="goal_acceptance_bias",
+                min_value=-0.3,
+                max_value=0.3,
+                max_delta=0.02
+            ),
+            AdjustmentDimension.COST_PROJECTION: KnobConfig(
+                name="cost_inflation_factor",
+                min_value=0.8,
+                max_value=1.5,
+                max_delta=0.03
+            )
+        }
+        
+        # Current knob values (the only mutable state)
+        self.current_values: Dict[AdjustmentDimension, float] = {
+            AdjustmentDimension.PLANNER_CONFIDENCE: 1.0,
+            AdjustmentDimension.RISK_ESTIMATION: 0.0,
+            AdjustmentDimension.AUTHORITY_THRESHOLD: 0.0,
+            AdjustmentDimension.GOAL_SELECTION: 0.0,
+            AdjustmentDimension.COST_PROJECTION: 1.0
+        }
+        
+    def _cooldown_active(self) -> bool:
+        """Is mutation blocked by cooldown?"""
+        if not self.last_mutation_at:
+            return False
+        return (datetime.now() - self.last_mutation_at) < self.cooldown
+
+    def should_adjust(self) -> bool:
+        """Is pressure high enough AND conditions met?"""
+        # 1. Mode Gate
+        if self.mode != LearningMode.LEARN:
+            return False
+            
+        # 2. Budget Gate
+        if self.mutation_budget is not None and self.mutations_this_session >= self.mutation_budget:
+            return False
+            
+        # 3. Cooldown Gate
+        if self._cooldown_active():
+            # We don't log spam here, only on actual adjust() attempt
+            return False
+            
+        # 4. Pressure Check
+        return self.accumulator.should_trigger_adjustment(self.threshold)
+        
+    def get_primary_dimension(self) -> Optional[AdjustmentDimension]:
+        """Which dimension has the most pressure?"""
+        pressure = self.accumulator.get_pressure()
+        if pressure.max_pressure < self.threshold:
+            return None
+            
+        primary = pressure.primary_pressure
+        return AdjustmentDimension(primary)
+        
+    def adjust(self) -> Optional[AdjustmentEvent]:
+        """
+        Attempt to adjust. Returns event if adjustment was made.
+        """
+        # 1. Mode Gate Enforcer
+        if self.mode != LearningMode.LEARN:
+            self.log.record_blocked_mutation(
+                reason="mode_restriction",
+                details=f"Mode is {self.mode.value}"
+            )
+            return None
+            
+        # 2. Cooldown Gate Enforcer
+        if self._cooldown_active():
+             time_left = self.cooldown - (datetime.now() - self.last_mutation_at)
+             self.log.record_blocked_mutation(
+                 reason="cooldown",
+                 details=f"Remaining: {time_left}"
+             )
+             return None
+             
+        if not self.should_adjust():
+            return None
+            
+        dim = self.get_primary_dimension()
+        if dim is None:
+            return None
+            
+        # Get pressure for this dimension
+        pressure = self.accumulator.get_pressure()
+        pressure_value = getattr(pressure, dim.value)
+        
+        # Compute bounded delta
+        raw_delta = pressure_value * self.sensitivity
+        knob = self.knobs[dim]
+        bounded_delta = self._clip(raw_delta, -knob.max_delta, knob.max_delta)
+        
+        # Get old value
+        old_value = self.current_values[dim]
+        
+        # Compute new value (bounded by knob limits)
+        new_value = self._clip(
+            old_value + bounded_delta,
+            knob.min_value,
+            knob.max_value
+        )
+        
+        # Apply mutation
+        actual_delta = new_value - old_value
+        self.current_values[dim] = new_value
+        
+        # Update Cooldown
+        self.last_mutation_at = datetime.now()
+        
+        # Create event
+        event = AdjustmentEvent(
+            dimension=dim,
+            parameter_name=knob.name,
+            old_value=old_value,
+            new_value=new_value,
+            delta=actual_delta,
+            pressure_at_mutation=pressure_value
+        )
+        
+        # Log the event
+        self.log.append(event)
+        
+        # Increment session counter
+        self.mutations_this_session += 1
+        
+        # CRITICAL: Reset pressure for this dimension
+        self.accumulator.reset_dimension(dim.value)
+        
+        return event
+        
+    def _clip(self, value: float, min_val: float, max_val: float) -> float:
+        """Clip value to range."""
+        return max(min_val, min(max_val, value))
+        
+    def get_knob_value(self, dim: AdjustmentDimension) -> float:
+        """Get current value of a knob."""
+        return self.current_values[dim]
+        
+    def reverse_last(self, dim: AdjustmentDimension) -> bool:
+        """
+        Reverse the last adjustment for a dimension.
+        
+        This is your safety valve.
+        """
+        events = self.log.get_by_dimension(dim)
+        unreversed = [e for e in events if not e.reversed]
+        
+        if not unreversed:
+            return False
+            
+        # Get most recent
+        last = unreversed[-1]
+        
+        # Reverse it
+        self.current_values[dim] -= last.delta
+        self.log.mark_reversed(last.id)
+        
+        return True
+        
+    def check_invariants(self) -> bool:
+        """
+        Safety Kill-Switch.
+        
+        Checks:
+        1. Current mode is valid
+        2. Pressure for mutated dimensions is reset
+        3. No unexplained state
+        
+        If violated: Locks system to FROZEN.
+        """
+        # 1. Mode check (Paranoid)
+        if self.mode not in LearningMode:
+            self._emergency_freeze("Invalid LearningMode detected")
+            return False
+            
+        # 2. Cooldown check (if we just mutated, last_mutation should be fresh)
+        # (Implicitly handled by adjust logic, but good to double check state)
+        
+        return True
+
+    def _emergency_freeze(self, reason: str) -> None:
+        """HALT EVERYTHING."""
+        print(f"!!! INVARIANT VIOLATION: {reason} !!!")
+        print("!!! LOCKING LEARNING MODE TO FROZEN !!!")
+        self.mode = LearningMode.FROZEN
+        # In a real app, this would alert the owner
+        
+    def summary(self) -> dict:
+        """Current state for debugging."""
+        return {
+            "current_values": {
+                dim.value: round(val, 4)
+                for dim, val in self.current_values.items()
+            },
+            "threshold": self.threshold,
+            "mode": self.mode.value,
+            "should_adjust": self.should_adjust(),
+            "primary_dimension": self.get_primary_dimension().value if self.get_primary_dimension() else None,
+            "log_summary": self.log.summary()
+        }

@@ -1,0 +1,258 @@
+"""
+Meta-Memory (MM)
+
+PURPOSE: "What I don't know"
+
+Examples:
+- "What framework does the owner prefer?"
+- "Which file did they mean?"
+- "What is the owner's timezone?"
+
+This drives:
+- Questions
+- Curiosity
+- Active hypotheses
+
+MOST SYSTEMS DON'T HAVE THIS. THAT'S WHY THEY'RE DUMB.
+"""
+
+from __future__ import annotations
+
+import math
+import sqlite3
+import uuid
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+
+# Default decay rate for meta-memory (per day)
+META_DECAY_RATE = 0.02
+
+
+@dataclass
+class Unknown:
+    """
+    A meta-memory entry representing something the agent doesn't know.
+    
+    This is what drives curiosity and question generation.
+    """
+    id: str
+    question: str               # What we want to know
+    priority: float             # 0.0 - 1.0, how important is this
+    confidence: float           # 0.0 - 1.0, how sure we are this is still unknown
+    decay_rate: float           # λ per day
+    created_at: datetime
+    last_attempt: datetime      # Last time we tried to find out
+    attempts: int               # How many times we've tried
+    
+    @classmethod
+    def create(
+        cls,
+        question: str,
+        priority: float = 0.5,
+        decay_rate: float = META_DECAY_RATE,
+    ) -> Unknown:
+        """Create a new unknown."""
+        now = datetime.now()
+        return cls(
+            id=str(uuid.uuid4()),
+            question=question,
+            priority=priority,
+            confidence=1.0,  # Start fully confident this is unknown
+            decay_rate=decay_rate,
+            created_at=now,
+            last_attempt=now,
+            attempts=0,
+        )
+    
+    def is_active(self) -> bool:
+        """Check if we still care about this unknown."""
+        return self.confidence >= 0.2 and self.priority >= 0.1
+    
+    def decay(self, current_time: Optional[datetime] = None) -> float:
+        """Apply decay - questions become less urgent over time."""
+        current_time = current_time or datetime.now()
+        delta_days = (current_time - self.last_attempt).total_seconds() / 86400
+        self.confidence = self.confidence * math.exp(-self.decay_rate * delta_days)
+        return self.confidence
+    
+    def attempt(self) -> None:
+        """Record an attempt to answer this question."""
+        self.last_attempt = datetime.now()
+        self.attempts += 1
+    
+    def resolve(self) -> None:
+        """Mark this unknown as resolved (we found the answer)."""
+        self.confidence = 0.0
+    
+    def boost_priority(self, amount: float = 0.1) -> float:
+        """Increase priority (something triggered this question again)."""
+        self.priority = min(1.0, self.priority + amount)
+        return self.priority
+
+
+class MetaMemory:
+    """
+    Storage for meta-memories (what we don't know).
+    
+    This is the curiosity engine - tracking open questions
+    and driving information-seeking behavior.
+    """
+    
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+        self._init_db()
+    
+    def _init_db(self) -> None:
+        """Initialize the database schema."""
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS meta_memory (
+                    id TEXT PRIMARY KEY,
+                    question TEXT NOT NULL,
+                    priority REAL NOT NULL,
+                    confidence REAL NOT NULL,
+                    decay_rate REAL NOT NULL,
+                    created_at TEXT NOT NULL,
+                    last_attempt TEXT NOT NULL,
+                    attempts INTEGER NOT NULL
+                )
+            """)
+            
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_mm_priority 
+                ON meta_memory(priority)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_mm_confidence 
+                ON meta_memory(confidence)
+            """)
+            conn.commit()
+    
+    def store(self, unknown: Unknown) -> None:
+        """Store an unknown."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO meta_memory 
+                (id, question, priority, confidence, decay_rate,
+                 created_at, last_attempt, attempts)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                unknown.id,
+                unknown.question,
+                unknown.priority,
+                unknown.confidence,
+                unknown.decay_rate,
+                unknown.created_at.isoformat(),
+                unknown.last_attempt.isoformat(),
+                unknown.attempts,
+            ))
+            conn.commit()
+    
+    def get(self, unknown_id: str) -> Optional[Unknown]:
+        """Retrieve an unknown by ID."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT * FROM meta_memory WHERE id = ?",
+                (unknown_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                return self._row_to_unknown(row)
+        return None
+    
+    def get_top_questions(self, limit: int = 10) -> list[Unknown]:
+        """Get the highest priority active questions."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                SELECT * FROM meta_memory 
+                WHERE confidence >= 0.2 AND priority >= 0.1
+                ORDER BY priority DESC, confidence DESC
+                LIMIT ?
+            """, (limit,))
+            return [self._row_to_unknown(row) for row in cursor.fetchall()]
+    
+    def get_active(self, limit: int = 50) -> list[Unknown]:
+        """Get all active unknowns."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                SELECT * FROM meta_memory 
+                WHERE confidence >= 0.2
+                ORDER BY priority DESC
+                LIMIT ?
+            """, (limit,))
+            return [self._row_to_unknown(row) for row in cursor.fetchall()]
+    
+    def find_similar(self, search_term: str, limit: int = 5) -> list[Unknown]:
+        """Find similar questions."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                SELECT * FROM meta_memory 
+                WHERE question LIKE ? AND confidence >= 0.2
+                ORDER BY priority DESC
+                LIMIT ?
+            """, (f"%{search_term}%", limit))
+            return [self._row_to_unknown(row) for row in cursor.fetchall()]
+    
+    def update(self, unknown: Unknown) -> None:
+        """Update an unknown."""
+        self.store(unknown)
+    
+    def resolve(self, unknown_id: str) -> Optional[Unknown]:
+        """Mark a question as resolved."""
+        unknown = self.get(unknown_id)
+        if unknown:
+            unknown.resolve()
+            self.store(unknown)
+        return unknown
+    
+    def attempt(self, unknown_id: str) -> Optional[Unknown]:
+        """Record an attempt to answer a question."""
+        unknown = self.get(unknown_id)
+        if unknown:
+            unknown.attempt()
+            self.store(unknown)
+        return unknown
+    
+    def decay_all(self, current_time: Optional[datetime] = None) -> int:
+        """Apply decay to all unknowns."""
+        current_time = current_time or datetime.now()
+        became_inactive = 0
+        
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT * FROM meta_memory")
+            unknowns = [self._row_to_unknown(row) for row in cursor.fetchall()]
+        
+        for unknown in unknowns:
+            was_active = unknown.is_active()
+            unknown.decay(current_time)
+            if was_active and not unknown.is_active():
+                became_inactive += 1
+            self.store(unknown)
+        
+        return became_inactive
+    
+    def count_active(self) -> int:
+        """Count active unknowns."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT COUNT(*) FROM meta_memory WHERE confidence >= 0.2"
+            )
+            return cursor.fetchone()[0]
+    
+    def _row_to_unknown(self, row: tuple) -> Unknown:
+        """Convert a database row to an Unknown object."""
+        return Unknown(
+            id=row[0],
+            question=row[1],
+            priority=row[2],
+            confidence=row[3],
+            decay_rate=row[4],
+            created_at=datetime.fromisoformat(row[5]),
+            last_attempt=datetime.fromisoformat(row[6]),
+            attempts=row[7],
+        )

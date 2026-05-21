@@ -1,0 +1,218 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\learning\regret.py
+"""
+Regret Engine - Memory of Restraint
+
+This module provides the unified failure evidence structure that enables
+the agent to learn from mistakes, near-misses, and restraint.
+
+Key Concepts:
+1. FailureArtifact: Snapshot of any failure/restraint event
+2. RegretLedger: Accumulator of artifacts for learning
+3. Regret Score: Computed measure of "how bad was this?"
+
+This is the RAW MATERIAL for Phase 26 (learning).
+No heuristics yet. No mutation yet. Just evidence.
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional, List, Dict
+from enum import Enum
+import uuid
+
+
+class FailureType(Enum):
+    """What kind of failure/restraint occurred?"""
+    AUTHORITY_BLOCKED = "authority_blocked"    # Action denied by authority
+    AUTHORITY_APPROVAL_PENDING = "approval_pending"  # Waiting for owner
+    ESCALATION_TRIGGERED = "escalation"        # Catastrophic event
+    ROLLBACK_INVOKED = "rollback_invoked"      # Restore from shadow/trash
+    COST_THRESHOLD_EXCEEDED = "cost_exceeded"  # Budget overrun
+    GOAL_FAILED = "goal_failed"                # Committed goal failed
+    GOAL_ABANDONED = "goal_abandoned"          # Goal was quit
+    SUCCESS_CLEAN_EXECUTION = "success_clean"  # Flawless execution (rewards planner)
+    SUCCESS_UNDER_BUDGET = "success_budget"    # Significant cost saving (rewards cost)
+    SUCCESS_LOW_VARIANCE = "success_variance"  # Consistent high-quality execution (skill)
+    SUCCESS_LOW_RISK = "success_risk"          # Risk model was accurate (calibration)
+    SUCCESS_ENV_EASY = "success_easy"          # Environment was trivial (luck)
+
+
+@dataclass
+class FailureArtifact:
+    """
+    Unified evidence of a failure or restraint event.
+    
+    This is the atom of learning.
+    Every time the agent fails, is blocked, or recovers,
+    one of these is created.
+    """
+    id: str = field(default_factory=lambda: str(uuid.uuid4())[:12])
+    timestamp: datetime = field(default_factory=datetime.now)
+    
+    # What happened
+    failure_type: FailureType = FailureType.AUTHORITY_BLOCKED
+    
+    # Context
+    goal_id: Optional[str] = None
+    action_id: Optional[str] = None
+    action_target: Optional[str] = None
+    
+    # Authority state
+    permission_level: Optional[str] = None  # What did authority say?
+    trust_level_at_time: float = 1.0
+    
+    # Damage metrics
+    irreversible: bool = False  # Was the action irreversible?
+    rollback_used: bool = False  # Did we use rollback?
+    rollback_possible: bool = False  # Could we have rolled back?
+    
+    # Cost
+    delta_cost: float = 0.0  # How much did this cost us?
+    cost_before: float = 0.0
+    cost_after: float = 0.0
+    
+    # Explanation
+    reason: str = ""
+    
+    # Computed (not stored, calculated on access)
+    @property
+    def regret_score(self) -> float:
+        """
+        Compute regret score from artifact properties.
+        
+        Regret = f(irreversibility, rollback_state, cost, authority_state)
+        
+        Higher regret = more important for learning.
+        """
+        score = 0.0
+        
+        # Base regret by failure type
+        type_weights = {
+            FailureType.GOAL_FAILED: 1.0,
+            FailureType.ESCALATION_TRIGGERED: 0.9,
+            FailureType.COST_THRESHOLD_EXCEEDED: 0.8,
+            FailureType.AUTHORITY_BLOCKED: 0.5,
+            FailureType.ROLLBACK_INVOKED: 0.4,
+            FailureType.AUTHORITY_APPROVAL_PENDING: 0.3,
+            FailureType.GOAL_ABANDONED: 0.2,
+            FailureType.SUCCESS_CLEAN_EXECUTION: 0.4,
+            FailureType.SUCCESS_UNDER_BUDGET: 0.4,
+            FailureType.SUCCESS_LOW_VARIANCE: 0.5, # Strong signal of skill
+            FailureType.SUCCESS_LOW_RISK: 0.3,     # Good calibration
+            FailureType.SUCCESS_ENV_EASY: 0.1,     # Weak signal (don't overlearn)
+        }
+        score += type_weights.get(self.failure_type, 0.3)
+        
+        # Irreversibility amplifier
+        if self.irreversible:
+            if not self.rollback_possible:
+                score += 0.5  # Permanent damage
+            elif not self.rollback_used:
+                score += 0.3  # Could have recovered but didn't
+            else:
+                score += 0.1  # Recovered, minimal regret
+                
+        # Cost factor
+        cost_factor = min(self.delta_cost / 100.0, 0.5)
+        score += cost_factor
+        
+        # Trust erosion factor
+        # If trust was high but we still failed badly, that's worse
+        if self.trust_level_at_time > 0.7 and self.irreversible:
+            score += 0.2
+            
+        return min(score, 2.0)  # Cap at 2.0
+
+
+class RegretLedger:
+    """
+    Accumulator of failure artifacts.
+    
+    This is the agent's structured memory of mistakes.
+    Used by Phase 26 to mutate heuristics and calibrate trust.
+    """
+    
+    def __init__(self, max_entries: int = 1000):
+        self.artifacts: List[FailureArtifact] = []
+        self.max_entries = max_entries
+        
+        # Aggregates for quick lookup
+        self.total_regret: float = 0.0
+        self.by_goal: Dict[str, List[FailureArtifact]] = {}
+        self.by_type: Dict[FailureType, List[FailureArtifact]] = {}
+        
+    def record(self, artifact: FailureArtifact) -> None:
+        """Record a new failure artifact."""
+        self.artifacts.append(artifact)
+        self.total_regret += artifact.regret_score
+        
+        # Index by goal
+        if artifact.goal_id:
+            if artifact.goal_id not in self.by_goal:
+                self.by_goal[artifact.goal_id] = []
+            self.by_goal[artifact.goal_id].append(artifact)
+            
+        # Index by type
+        if artifact.failure_type not in self.by_type:
+            self.by_type[artifact.failure_type] = []
+        self.by_type[artifact.failure_type].append(artifact)
+        
+        # Prune if needed
+        if len(self.artifacts) > self.max_entries:
+            self._prune_oldest()
+            
+    def _prune_oldest(self) -> None:
+        """Remove oldest entries, keeping high-regret ones longer."""
+        # Sort by regret score (keep high regret)
+        sorted_artifacts = sorted(
+            self.artifacts, 
+            key=lambda a: a.regret_score, 
+            reverse=True
+        )
+        # Keep top 80%
+        keep_count = int(self.max_entries * 0.8)
+        self.artifacts = sorted_artifacts[:keep_count]
+        
+        # Rebuild indexes
+        self._rebuild_indexes()
+        
+    def _rebuild_indexes(self) -> None:
+        """Rebuild by_goal and by_type indexes."""
+        self.by_goal = {}
+        self.by_type = {}
+        self.total_regret = 0.0
+        
+        for artifact in self.artifacts:
+            self.total_regret += artifact.regret_score
+            
+            if artifact.goal_id:
+                if artifact.goal_id not in self.by_goal:
+                    self.by_goal[artifact.goal_id] = []
+                self.by_goal[artifact.goal_id].append(artifact)
+                
+            if artifact.failure_type not in self.by_type:
+                self.by_type[artifact.failure_type] = []
+            self.by_type[artifact.failure_type].append(artifact)
+            
+    def get_regret_for_goal(self, goal_id: str) -> float:
+        """Get total regret accumulated for a specific goal."""
+        if goal_id not in self.by_goal:
+            return 0.0
+        return sum(a.regret_score for a in self.by_goal[goal_id])
+        
+    def get_recent_high_regret(self, threshold: float = 0.7, limit: int = 10) -> List[FailureArtifact]:
+        """Get recent high-regret artifacts for learning."""
+        high_regret = [a for a in self.artifacts if a.regret_score >= threshold]
+        # Sort by timestamp descending
+        high_regret.sort(key=lambda a: a.timestamp, reverse=True)
+        return high_regret[:limit]
+        
+    def summary(self) -> dict:
+        """Summary statistics for debugging/auditing."""
+        return {
+            "total_artifacts": len(self.artifacts),
+            "total_regret": round(self.total_regret, 2),
+            "goals_affected": len(self.by_goal),
+            "by_type_counts": {t.value: len(a) for t, a in self.by_type.items()}
+        }

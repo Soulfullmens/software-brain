@@ -1,0 +1,284 @@
+{
+  "_freeze": {
+    "baseline": {
+      "winner": "conditional_threshold",
+      "score": 0.5882,
+      "ambiguity": "structurally_novel",
+      "entropy": 1.994,
+      "all_scores": {
+        "centralized": 0.5662,
+        "distributed": 0.4605,
+        "manual_first": 0.5344,
+        "conditional_threshold": 0.5882
+      }
+    },
+    "sweeps": {
+      "unique_caller_files": {
+        "current_value": 3,
+        "boundaries": [
+          {
+            "at_value": 5.05,
+            "type": "FLIP",
+            "from": "conditional_threshold (structurally_novel)",
+            "to": "distributed (structurally_novel)",
+            "entropy_delta": -0.001
+          },
+          {
+            "at_value": 10.0,
+            "type": "SHIFT",
+            "from": "distributed (structurally_novel)",
+            "to": "distributed (ambiguous)",
+            "entropy_delta": -0.011
+          }
+        ],
+        "margin_of_safety": 2.05,
+        "num_flips": 2
+      },
+      "dominant_file_ratio": {
+        "current_value": 0.4,
+        "boundaries": [
+          {
+            "at_value": 0.1,
+            "type": "FLIP",
+            "from": "distributed (structurally_novel)",
+            "to": "manual_first (structurally_novel)",
+            "entropy_delta": 0.009
+          },
+          {
+            "at_value": 0.3,
+            "type": "FLIP",
+            "from": "manual_first (structurally_novel)",
+            "to": "conditional_threshold (structurally_novel)",
+            "entropy_delta": 0.001
+          },
+          {
+            "at_value": 0.5,
+            "type": "FLIP",
+            "from": "conditional_threshold (structurally_novel)",
+            "to": "centralized (structurally_novel)",
+            "entropy_delta": -0.007
+          },
+          {
+            "at_value": 0.75,
+            "type": "SHIFT",
+            "from": "centralized (structurally_novel)",
+            "to": "centralized (ambiguous)",
+            "entropy_delta": -0.012
+          }
+        ],
+        "margin_of_safety": 0.1,
+        "num_flips": 4
+      },
+      "automatic_ratio": {
+        "current_value": 0.6,
+        "boundaries": [
+          {
+            "at_value": 0.1,
+            "type": "SHIFT",
+            "from": "manual_first (ambiguous)",
+            "to": "manual_first (structurally_novel)",
+            "entropy_delta": 0.012
+          },
+          {
+            "at_value": 0.55,
+            "type": "FLIP",
+            "from": "manual_first (structurally_novel)",
+            "to": "conditional_threshold (structurally_novel)",
+            "entropy_delta": 0.001
+          }
+        ],
+        "margin_of_safety": 0.05,
+        "num_flips": 2
+      },
+      "manual_ratio": {
+        "current_value": 0.2,
+        "boundaries": [
+          {
+            "at_value": 0.45,
+            "type": "FLIP",
+            "from": "conditional_threshold (structurally_novel)",
+            "to": "manual_first (structurally_novel)",
+            "entropy_delta": -0.0
+          }
+        ],
+        "margin_of_safety": 0.25,
+        "num_flips": 1
+      },
+      "reason_enum_count": {
+        "current_value": 6,
+        "boundaries": [],
+        "margin_of_safety": "INF",
+        "num_flips": 0
+      }
+    }
+  },
+  "_unfreeze": {
+    "baseline": {
+      "winner": "conditional_threshold",
+      "score": 0.8777,
+      "ambiguity": "moderate",
+      "entropy": 1.7611,
+      "all_scores": {
+        "centralized": 0.8663,
+        "distributed": 0.1791,
+        "manual_first": 0.3408,
+        "conditional_threshold": 0.8777
+      }
+    },
+    "sweeps": {
+      "unique_caller_files": {
+        "current_value": 1,
+        "boundaries": [
+          {
+            "at_value": 5.05,
+            "type": "SHIFT",
+            "from": "conditional_threshold (moderate)",
+            "to": "conditional_threshold (ambiguous)",
+            "entropy_delta": 0.009
+          }
+        ],
+        "margin_of_safety": 4.05,
+        "num_flips": 1
+      },
+      "dominant_file_ratio": {
+        "current_value": 1.0,
+        "boundaries": [
+          {
+            "at_value": 0.4,
+            "type": "SHIFT",
+            "from": "conditional_threshold (structurally_novel)",
+            "to": "conditional_threshold (ambiguous)",
+            "entropy_delta": -0.011
+          },
+          {
+            "at_value": 0.75,
+            "type": "SHIFT",
+            "from": "conditional_threshold (ambiguous)",
+            "to": "conditional_threshold (moderate)",
+            "entropy_delta": -0.015
+          }
+        ],
+        "margin_of_safety": 0.25,
+        "num_flips": 2
+      },
+      "automatic_ratio": {
+        "current_value": 1.0,
+        "boundaries": [
+          {
+            "at_value": 0.95,
+            "type": "FLIP",
+            "from": "centralized (moderate)",
+            "to": "conditional_threshold (moderate)",
+            "entropy_delta": -0.008
+          }
+        ],
+        "margin_of_safety": 0.05,
+        "num_flips": 1
+      },
+      "manual_ratio": {
+        "current_value": 0.0,
+        "boundaries": [],
+        "margin_of_safety": "INF",
+        "num_flips": 0
+      },
+      "reason_enum_count": {
+        "current_value": 6,
+        "boundaries": [],
+        "margin_of_safety": "INF",
+        "num_flips": 0
+      }
+    }
+  },
+  "messy_method": {
+    "baseline": {
+      "winner": "manual_first",
+      "score": 0.5776,
+      "ambiguity": "ambiguous",
+      "entropy": 1.9329,
+      "all_scores": {
+        "centralized": 0.3484,
+        "distributed": 0.3354,
+        "manual_first": 0.5776,
+        "conditional_threshold": 0.2574
+      }
+    },
+    "sweeps": {
+      "unique_caller_files": {
+        "current_value": 10,
+        "boundaries": [
+          {
+            "at_value": 2.35,
+            "type": "SHIFT",
+            "from": "manual_first (moderate)",
+            "to": "manual_first (ambiguous)",
+            "entropy_delta": 0.008
+          }
+        ],
+        "margin_of_safety": 7.65,
+        "num_flips": 1
+      },
+      "dominant_file_ratio": {
+        "current_value": 0.8,
+        "boundaries": [
+          {
+            "at_value": 0.3,
+            "type": "SHIFT",
+            "from": "distributed (moderate)",
+            "to": "distributed (ambiguous)",
+            "entropy_delta": 0.02
+          },
+          {
+            "at_value": 0.35,
+            "type": "FLIP",
+            "from": "distributed (ambiguous)",
+            "to": "manual_first (ambiguous)",
+            "entropy_delta": 0.019
+          }
+        ],
+        "margin_of_safety": 0.45,
+        "num_flips": 2
+      },
+      "automatic_ratio": {
+        "current_value": 0.1,
+        "boundaries": [
+          {
+            "at_value": 0.15,
+            "type": "SHIFT",
+            "from": "manual_first (ambiguous)",
+            "to": "manual_first (structurally_novel)",
+            "entropy_delta": 0.012
+          },
+          {
+            "at_value": 0.6,
+            "type": "FLIP",
+            "from": "manual_first (structurally_novel)",
+            "to": "conditional_threshold (structurally_novel)",
+            "entropy_delta": 0.001
+          }
+        ],
+        "margin_of_safety": 0.05,
+        "num_flips": 2
+      },
+      "manual_ratio": {
+        "current_value": 0.9,
+        "boundaries": [
+          {
+            "at_value": 0.6,
+            "type": "SHIFT",
+            "from": "manual_first (structurally_novel)",
+            "to": "manual_first (ambiguous)",
+            "entropy_delta": -0.002
+          }
+        ],
+        "margin_of_safety": 0.3,
+        "num_flips": 1
+      },
+      "reason_enum_count": {
+        "current_value": 1,
+        "boundaries": [],
+        "margin_of_safety": "INF",
+        "num_flips": 0
+      }
+    }
+  }
+}

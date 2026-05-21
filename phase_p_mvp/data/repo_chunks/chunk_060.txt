@@ -1,0 +1,50 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\system\intent.py
+"""
+Intent Provenance
+
+Defines the context and origin of an action request.
+No action can be executed without a clear provenance.
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Optional
+from src.system.permissions import AuthorityLevel
+
+
+@dataclass(frozen=True)
+class IntentContext:
+    """
+    Immutable context for an execution request.
+    
+    Fields:
+        origin: Who initiated this? ("agent", "owner", "system", "body")
+        authority: What clearance level is claimed?
+        reason: Why is this happening? (Machine readable or description)
+        timestamp: When was this intent formed?
+        related_event_id: Optional link to an InputEvent or interaction
+    """
+    origin: str
+    authority: AuthorityLevel
+    reason: str
+    timestamp: datetime = field(default_factory=datetime.now)
+    related_event_id: Optional[str] = None
+    
+    @classmethod
+    def create_agent_intent(cls, reason: str = "Autonomous action") -> 'IntentContext':
+        """Create a standard agent intent."""
+        return cls(
+            origin="agent",
+            authority=AuthorityLevel.AGENT,
+            reason=reason
+        )
+        
+    @classmethod
+    def create_owner_intent(cls, reason: str = "User command") -> 'IntentContext':
+        """Create a privileged owner intent."""
+        return cls(
+            origin="owner",
+            authority=AuthorityLevel.OWNER,
+            reason=reason
+        )

@@ -1,0 +1,9 @@
+[
+  {
+    "timestamp": "2026-03-14T12:00:00",
+    "user_correction": "The Instagram reel (https://www.instagram.com/reel/DTGMmw4jxmZ/) is NOT about woodworking/Baltic Birch. It is about a DIY ROCKET or DRONE. Identify ESCs, brushless motors, flight controllers, carbon fiber, and propellers.",
+    "category": "vision_correction",
+    "impact_level": "high",
+    "learned_lesson": "Do not assume a wooden box is simple furniture if wires or circuit boards are visible. Look for rocketry/drone components like ESCs, motors, and flight controllers."
+  }
+]

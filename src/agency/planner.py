@@ -1,0 +1,201 @@
+"""
+Minimal Planner - Stateless Decision Making
+
+Responsibilities:
+- Consult BeliefState and Coherence
+- Propose exactly one Action based on locked heuristics
+- No learning, no memory, no side effects
+
+HEURISTICS (Order matters):
+1. Coherence < 0.5 -> Ask clarification
+2. Blocking contradictions -> Resolve
+3. Prediction expiring -> Gather evidence
+4. No predictions -> Generate prediction
+5. Else -> Do nothing (None)
+"""
+
+from typing import Optional, List
+from datetime import datetime, timedelta
+import uuid
+
+from src.cognition.belief_state import BeliefState
+from src.cognition.coherence import compute_coherence
+from src.cognition.prediction import Prediction
+from src.agency.action import Action, PlanProposal
+from src.agency.decision import DecisionTrace, RationaleNode
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.core.timeline import AgentTimeline
+    from src.agency.goal_pressure import GoalTradeoffEngine
+    from src.core.identity import Identity
+
+
+class Planner:
+    """
+    Stateless planner that maps BeliefState -> Optional[PlanProposal].
+    """
+    
+    def propose(
+        self, 
+        state: BeliefState,
+        timeline: Optional['AgentTimeline'] = None,
+        goals: Optional['GoalTradeoffEngine'] = None,
+        identity: Optional['Identity'] = None
+    ) -> Optional[PlanProposal]:
+        """
+        Propose the next single action.
+        """
+        decision_id = str(uuid.uuid4())
+        heuristics_checked = []
+        considered_factors = []
+        rejected = []
+        match_heuristic = None
+        proposal = None
+        
+        # 1. Coherence Check
+        heuristics_checked.append("coherence_check")
+        report = compute_coherence(state)
+        considered_factors.append(RationaleNode("coherence", "metric", f"Score: {report.score:.2f}"))
+        
+        if report.score < 0.5:
+            match_heuristic = "low_coherence"
+            proposal = self._propose_clarification(report.score)
+        else:
+            rejected.append("low_coherence")
+            
+            # 2. Contradiction Check
+            heuristics_checked.append("contradiction_check")
+            if state.contradictions:
+                match_heuristic = "resolve_contradiction"
+                c = state.contradictions[0]
+                considered_factors.append(RationaleNode(c.id, "contradiction", f"Blocking: {c.belief_a} vs {c.belief_b}"))
+                proposal = self._propose_resolution(c.belief_a)
+            else:
+                rejected.append("resolve_contradiction")
+                
+                # 3. Expiring Prediction Check
+                heuristics_checked.append("expiring_prediction")
+                active_preds = state.get_active_predictions()
+                now = datetime.now()
+                urgent_horizon = now + timedelta(minutes=10)
+                
+                found_urgent = False
+                for p in active_preds:
+                    if p.probability > 0.7 and p.expected_by <= urgent_horizon:
+                        match_heuristic = "gather_evidence"
+                        considered_factors.append(RationaleNode(p.id, "prediction", f"Expiring: {p.statement}"))
+                        proposal = self._propose_observation(p)
+                        found_urgent = True
+                        break
+                
+                if not found_urgent:
+                    rejected.append("gather_evidence")
+                    
+                    # 4. No Predictions Check
+                    heuristics_checked.append("no_predictions")
+                    if not active_preds:
+                        match_heuristic = "generate_prediction"
+                        considered_factors.append(RationaleNode("state_empty", "state", "No active predictions"))
+                        proposal = self._propose_prediction_generation()
+                    else:
+                        rejected.append("generate_prediction")
+
+        # Attach Trace if proposal exists
+        if proposal:
+            # Temporal context
+            agent_age = None
+            session_duration = None
+            time_since_learning = None
+            if timeline:
+                agent_age = timeline.get_age()
+                session_duration = timeline.get_session_duration()
+                time_since_learning = timeline.time_since_learning()
+            
+            # Goal context
+            goal_pressures_data = []
+            highest_pressure_goal = None
+            goal_pressures_data = []
+            highest_pressure_goal = None
+            if goals:
+                utilities = goals.get_all_utilities(identity)
+                goal_pressures_data = [
+                    {"goal": u.goal_description, "pressure": u.utility_score, "reason": u.reason}
+                    for u in utilities
+                ]
+                if utilities:
+                    highest = max(utilities, key=lambda u: u.utility_score)
+                    highest_pressure_goal = highest.goal_description
+            
+            trace = DecisionTrace(
+                id=decision_id,
+                timestamp=datetime.now(),
+                coherence_score=report.score,
+                active_heuristics=heuristics_checked,
+                match_heuristic=match_heuristic or "unknown",
+                considered_factors=considered_factors,
+                rejected_alternatives=rejected,
+                agent_age=agent_age,
+                session_duration=session_duration,
+                time_since_learning=time_since_learning,
+                goal_pressures=goal_pressures_data,
+                highest_pressure_goal=highest_pressure_goal
+            )
+            proposal.trace = trace
+            
+        return proposal
+
+    def _propose_clarification(self, score: float) -> PlanProposal:
+        action = Action(
+            id="ask_clarification",
+            description="Ask the owner for help to restore coherence.",
+            rationale=f"System coherence is critically low ({score:.2f}).",
+            target="system"
+        )
+        return PlanProposal(
+            action=action,
+            confidence=1.0, # Certain we need help
+            risks=["User annoyance"]
+        )
+
+    def _propose_resolution(self, entity_id: str) -> PlanProposal:
+        action = Action(
+            id="resolve_contradiction",
+            description=f"Resolve conflict in entity {entity_id}",
+            rationale="Blocking contradiction detected.",
+            target=entity_id
+        )
+        # Expectation: Coherence improves
+        # We can't actually generate the specific prediction object here easily without context,
+        # but the meaningful output is the Action.
+        return PlanProposal(
+            action=action,
+            confidence=0.8,
+            risks=["Choosing wrong side"]
+        )
+
+    def _propose_observation(self, prediction: Prediction) -> PlanProposal:
+        action = Action(
+            id="gather_evidence",
+            description=f"Verify prediction: {prediction.statement}",
+            rationale=f"High confidence prediction '{prediction.statement}' is expiring.",
+            target=prediction.id
+        )
+        return PlanProposal(
+            action=action,
+            confidence=0.9,
+            risks=["Observation cost"]
+        )
+
+    def _propose_prediction_generation(self) -> PlanProposal:
+        action = Action(
+            id="generate_prediction",
+            description="Formulate expectations about the world.",
+            rationale="No active predictions exist. System is passive.",
+            target="system"
+        )
+        return PlanProposal(
+            action=action,
+            confidence=0.7,
+            risks=["Hallucination"]
+        )

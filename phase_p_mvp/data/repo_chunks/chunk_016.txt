@@ -1,0 +1,121 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\cognition\prediction_manager.py
+"""
+Prediction Manager - Lifecycle Control
+
+Responsibilities:
+- Create predictions
+- Check for expiry
+- Resolve predictions (confirm/deny)
+- Emit failure signals (for coherence/learning)
+
+RULES:
+- Expired predictions are NOT the same as denied
+- Only DENIED predictions heavily impact coherence (F-term)
+- Manager mutates prediction objects
+- Manager does NOT learn (that's Layer 4)
+"""
+
+from datetime import datetime
+from typing import Optional, Tuple
+
+from .belief_state import BeliefState
+from .prediction import Prediction, PredictionOutcome
+from src.learning.signals import LearningSignal
+
+
+class PredictionManager:
+    """
+    Manages the lifecycle of predictions in the belief state.
+    """
+    
+    def __init__(self, state: BeliefState):
+        self.state = state
+    
+    def create_prediction(
+        self,
+        statement: str,
+        probability: float,
+        expected_by: datetime,
+        conditioned_on_action: Optional[str] = None
+    ) -> Prediction:
+        """Create and register a new prediction."""
+        prediction = Prediction.create(
+            statement=statement,
+            probability=probability,
+            expected_by=expected_by,
+            conditioned_on_action=conditioned_on_action
+        )
+        # Note: BeliefState.predictions was list[PredictionRef]
+        # In Step 5 we need to upgrade BeliefState to hold full Prediction objects
+        # similar to how we did with Entity/Relation.
+        # Ideally we refactor BeliefState first, but let's assume we do that parallel.
+        # For now, we append to the list.
+        self.state.predictions.append(prediction)
+        self.state.timestamp = datetime.now()
+        return prediction
+    
+    def check_expiry(self, current_time: Optional[datetime] = None) -> int:
+        """
+        Check all active predictions for expiry.
+        Returns count of expired predictions.
+        """
+        now = current_time or datetime.now()
+        expired_count = 0
+        
+        for prediction in self.state.get_active_predictions():
+            # If deadline passed + buffer (e.g. 1 min? No, strict for now)
+            if prediction.expected_by < now:
+                prediction.mark_expired(now)
+                expired_count += 1
+                
+        if expired_count > 0:
+            self.state.timestamp = datetime.now()
+            
+        return expired_count
+    
+    def resolve_prediction(
+        self,
+        prediction_id: str,
+        outcome: PredictionOutcome
+    ) -> Tuple[bool, Optional[LearningSignal]]:
+        """
+        Resolve a prediction manually.
+        Returns (True, signal) if found and resolved.
+        Returns (False, None) if not found.
+        Signal is produced ONLY if outcome is 'denied'.
+        """
+        # Find prediction
+        prediction = next((p for p in self.state.predictions if p.id == prediction_id), None)
+        
+        if not prediction:
+            return False, None
+        
+        signal = None
+        
+        if outcome == "confirmed":
+            prediction.mark_confirmed()
+        elif outcome == "denied":
+            prediction.mark_denied()
+            # Emit failure signal
+            signal = LearningSignal.prediction_failure(
+                prediction_probability=prediction.probability,
+                source=f"prediction_{prediction.id}" # Implicit source for now
+            )
+        elif outcome == "expired":
+            prediction.mark_expired()
+            
+        self.state.timestamp = datetime.now()
+        return True, signal
+    
+    def get_failure_load(self) -> float:
+        """
+        Calculate total failure load for coherence (F-term).
+        Sum of probabilities of DENIED predictions.
+        
+        TODO(Layer 4): Make this the single source of truth for failure signals.
+        Coherence logic currently duplicates this filtration.
+        """
+        # This mirrors logic in coherence.py, but centralized here is better
+        failed = [p for p in self.state.predictions if p.outcome == "denied"]
+        return sum(p.probability for p in failed)

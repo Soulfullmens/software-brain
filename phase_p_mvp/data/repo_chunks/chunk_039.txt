@@ -1,0 +1,194 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\learning\self_critique.py
+"""
+Self-Critique System
+
+The agent's ability to notice and articulate problems with its own behavior.
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import List, Optional, Dict, Any
+from enum import Enum
+import uuid
+
+
+class CritiqueType(Enum):
+    """Types of self-critique."""
+    STRATEGY_WARNING = "strategy_warning"
+    GOAL_CONFLICT = "goal_conflict_detected"
+    PLANNING_BIAS = "planning_bias_detected"
+    LEARNING_STAGNATION = "learning_stagnation"
+    COHERENCE_DRIFT = "coherence_drift"
+    PATTERN_RECURRENCE = "pattern_recurrence"
+
+
+@dataclass
+class SelfCritique:
+    """
+    A self-generated critique about the agent's behavior.
+    """
+    id: str
+    critique_type: CritiqueType
+    message: str
+    severity: float  # 0.0 - 1.0
+    timestamp: datetime = field(default_factory=datetime.now)
+    
+    # Context
+    related_decisions: List[str] = field(default_factory=list)
+    related_goals: List[str] = field(default_factory=list)
+    related_patterns: List[str] = field(default_factory=list)
+    
+    # Action suggestion
+    suggested_action: Optional[str] = None
+    
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "type": self.critique_type.value,
+            "message": self.message,
+            "severity": self.severity,
+            "timestamp": self.timestamp.isoformat(),
+            "suggestion": self.suggested_action
+        }
+
+
+class SelfCritiqueEngine:
+    """
+    Generates self-critiques based on pattern detection and system state.
+    """
+    
+    def __init__(self):
+        self.critiques: List[SelfCritique] = []
+        self._last_coherence: float = 1.0
+        self._coherence_samples: List[float] = []
+        
+    def critique_from_pattern(
+        self, 
+        pattern_type: str, 
+        description: str, 
+        severity: float,
+        pattern_id: str
+    ) -> SelfCritique:
+        """Generate a critique from a detected pattern."""
+        
+        type_map = {
+            "contradiction_cycle": CritiqueType.PATTERN_RECURRENCE,
+            "goal_starvation": CritiqueType.GOAL_CONFLICT,
+            "prediction_cluster": CritiqueType.STRATEGY_WARNING,
+            "heuristic_decay": CritiqueType.PLANNING_BIAS
+        }
+        
+        critique_type = type_map.get(pattern_type, CritiqueType.PATTERN_RECURRENCE)
+        
+        suggestions = {
+            CritiqueType.PATTERN_RECURRENCE: "Re-evaluate beliefs involved in this pattern",
+            CritiqueType.GOAL_CONFLICT: "Prioritize or consolidate competing goals",
+            CritiqueType.STRATEGY_WARNING: "Consider alternative approaches",
+            CritiqueType.PLANNING_BIAS: "Rebalance heuristic weights"
+        }
+        
+        critique = SelfCritique(
+            id=str(uuid.uuid4()),
+            critique_type=critique_type,
+            message=f"Self-observation: {description}",
+            severity=severity,
+            related_patterns=[pattern_id],
+            suggested_action=suggestions.get(critique_type)
+        )
+        
+        self.critiques.append(critique)
+        return critique
+    
+    def critique_from_heuristic_warning(
+        self, 
+        heuristic_id: str, 
+        warning_type: str,
+        stats: Dict[str, Any]
+    ) -> SelfCritique:
+        """Generate a critique from heuristic health warning."""
+        
+        if warning_type == "low_success_rate":
+            message = f"Heuristic '{heuristic_id}' has low success rate ({stats.get('success_rate', 0):.1%})"
+        else:
+            message = f"Heuristic '{heuristic_id}' has low confidence ({stats.get('confidence', 0):.2f})"
+        
+        critique = SelfCritique(
+            id=str(uuid.uuid4()),
+            critique_type=CritiqueType.PLANNING_BIAS,
+            message=message,
+            severity=0.6,
+            suggested_action=f"Consider reducing reliance on '{heuristic_id}'"
+        )
+        
+        self.critiques.append(critique)
+        return critique
+    
+    def observe_coherence(self, score: float) -> Optional[SelfCritique]:
+        """Track coherence over time and critique if drifting."""
+        self._coherence_samples.append(score)
+        
+        # Keep last 10 samples
+        if len(self._coherence_samples) > 10:
+            self._coherence_samples = self._coherence_samples[-10:]
+        
+        # Detect drift: compare current average to historical baseline
+        if len(self._coherence_samples) >= 5:
+            avg = sum(self._coherence_samples[-5:]) / 5  # Recent average
+            
+            # Check if we've drifted significantly from baseline
+            # Baseline is the first recorded coherence level
+            if avg < 0.6 and self._last_coherence > 0.7:
+                critique = SelfCritique(
+                    id=str(uuid.uuid4()),
+                    critique_type=CritiqueType.COHERENCE_DRIFT,
+                    message=f"Coherence has drifted from {self._last_coherence:.2f} to {avg:.2f}",
+                    severity=0.7,
+                    suggested_action="Review recent belief changes for consistency"
+                )
+                self.critiques.append(critique)
+                # Update baseline only after detecting drift
+                self._last_coherence = avg
+                return critique
+                
+        # Only update baseline if we haven't detected a drift (keep original high value)
+        # This ensures the comparison is against initial high coherence
+        if len(self._coherence_samples) <= 5:
+            self._last_coherence = score
+            
+        return None
+    
+    def observe_learning_frequency(self, time_since_learning: Optional[float]) -> Optional[SelfCritique]:
+        """Critique if no learning for too long."""
+        if time_since_learning is not None and time_since_learning > 48:  # hours
+            critique = SelfCritique(
+                id=str(uuid.uuid4()),
+                critique_type=CritiqueType.LEARNING_STAGNATION,
+                message=f"No learning events for {time_since_learning:.1f} hours",
+                severity=0.5,
+                suggested_action="Seek new information or make predictions"
+            )
+            self.critiques.append(critique)
+            return critique
+        return None
+    
+    def get_recent_critiques(self, hours: int = 24) -> List[SelfCritique]:
+        """Get critiques from the last N hours."""
+        cutoff = datetime.now().timestamp() - (hours * 3600)
+        return [c for c in self.critiques if c.timestamp.timestamp() > cutoff]
+    
+    def get_severe_critiques(self, min_severity: float = 0.6) -> List[SelfCritique]:
+        """Get critiques above severity threshold."""
+        return [c for c in self.critiques if c.severity >= min_severity]
+    
+    def summary(self) -> dict:
+        """Summary of self-critique state."""
+        recent = self.get_recent_critiques()
+        severe = self.get_severe_critiques()
+        
+        return {
+            "total_critiques": len(self.critiques),
+            "recent_critiques": len(recent),
+            "severe_critiques": len(severe),
+            "coherence_trend": self._coherence_samples[-5:] if self._coherence_samples else []
+        }

@@ -1,0 +1,20 @@
+env: "production"
+
+email:
+  subject_filter: "Sales Report"
+  poll_interval: 60
+  imap_server: "imap.example.com" # Placeholder for future
+  smtp_server: "smtp.example.com"
+
+paths:
+  downloads: "./downloads"
+  data: "./data"
+  reports: "./reports"
+  logs: "./logs"
+  registry: "./data/processed_registry.json"
+  master_file: "./data/master_sales.xlsx"
+  report_file: "./reports/daily_summary.txt"
+
+report:
+  recipients:
+    - "manager@company.com"

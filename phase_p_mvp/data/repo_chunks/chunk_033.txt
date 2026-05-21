@@ -1,0 +1,151 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\learning\learning_explain.py
+"""
+Learning Explanation Surface - The "Why" API.
+
+This module provides human-readable explanations for the learning engine's behavior.
+It transforms raw logs and pressure vectors into answers.
+
+Mandatory Queries:
+1. recent_mutations() - What changed?
+2. why_last_change() - Why did it change?
+3. active_pressures() - What is building up?
+4. what_would_reverse() - How do I fix it?
+"""
+
+from typing import Dict, List, Optional, Any
+from datetime import datetime
+
+from src.learning.adjustment import AdjustmentPolicy, AdjustmentLog, AdjustmentDimension
+from src.learning.accumulation import BlameAccumulator
+
+class LearningExplanationEngine:
+    """
+    Read-only interface for understanding learning behavior.
+    """
+    
+    def __init__(
+        self,
+        policy: AdjustmentPolicy,
+        accumulator: BlameAccumulator,
+        log: AdjustmentLog
+    ):
+        self.policy = policy
+        self.accumulator = accumulator
+        self.log = log
+        
+    def current_knobs(self) -> Dict[str, float]:
+        """Get current values of all tunable knobs."""
+        return {
+            dim.value: self.policy.get_knob_value(dim)
+            for dim in AdjustmentDimension
+        }
+        
+    def active_pressures(self) -> Dict[str, float]:
+        """Get current accumulated pressure (potential future changes)."""
+        pressure = self.accumulator.get_pressure()
+        return pressure.to_dict()
+        
+    def recent_mutations(self, n: int = 5) -> List[Dict[str, Any]]:
+        """Get the last N mutations."""
+        events = self.log.events[-n:] if n > 0 else []
+        results = []
+        for e in reversed(events): # Newest first
+            results.append({
+                "id": e.id,
+                "timestamp": e.timestamp.isoformat(),
+                "dimension": e.dimension.value,
+                "parameter": e.parameter_name,
+                "delta": e.delta,
+                "old_value": e.old_value,
+                "new_value": e.new_value,
+                "pressure_at_time": e.pressure_at_mutation,
+                "reversed": e.reversed
+            })
+        return results
+        
+    def why_last_change(self) -> Dict[str, Any]:
+        """Explain the most recent mutation."""
+        if not self.log.events:
+            return {"status": "no_changes_yet"}
+            
+        last = self.log.events[-1]
+        
+        # In a real system, we'd link to specific artifact IDs.
+        # Here we infer from the dimension.
+        
+        explanation = {
+            "dimension": last.dimension.value,
+            "delta": last.delta,
+            "timestamp": last.timestamp.isoformat(),
+            "trigger_pressure": last.pressure_at_mutation,
+            "mode": "learn", # Assumed, since mutation happened
+        }
+        
+        # Add narrative logic
+        if last.dimension == AdjustmentDimension.PLANNER_CONFIDENCE:
+            if last.delta < 0:
+                explanation["narrative"] = "Decreased confidence due to failures (Rollback, Escalation)."
+            else:
+                explanation["narrative"] = "Increased confidence due to clean execution (Recovery)."
+                
+        elif last.dimension == AdjustmentDimension.COST_PROJECTION:
+            if last.delta > 0:
+                explanation["narrative"] = "Increased cost inflation due to budget overruns."
+            else:
+                explanation["narrative"] = "Decreased cost inflation due to efficiency."
+                
+        elif last.dimension == AdjustmentDimension.RISK_ESTIMATION:
+            if last.delta > 0:
+                explanation["narrative"] = "Increased risk bias (more cautious) due to underestimated risks."
+            else:
+                explanation["narrative"] = "Decreased risk bias (calibrated) due to low-risk success."
+        
+        return explanation
+        
+    def what_would_reverse(self, dimension_name: str) -> str:
+        """
+        Explain what evidence would cause a reversal of the current trend
+        or simple movement in a specific dimension.
+        """
+        try:
+            dim = AdjustmentDimension(dimension_name)
+        except ValueError:
+            return f"Unknown dimension: {dimension_name}"
+            
+        # Get current pressure to see where we are heading
+        pressure = getattr(self.accumulator.get_pressure(), dim.value)
+        
+        # Scenario: Pressure is POSITIVE (We are tightening/punishing)
+        # Reversal means: How do we LOOSEN/REWARD?
+        
+        if dim == AdjustmentDimension.PLANNER_CONFIDENCE:
+            return (
+                "To INCREASE confidence (Reverse): \n"
+                "- Demonstrated SUCCESS_LOW_VARIANCE (Skill)\n"
+                "- SUCCESS_CLEAN_EXECUTION without rollbacks\n"
+                "- Avoid ROLLBACK_INVOKED failures"
+            )
+            
+        if dim == AdjustmentDimension.COST_PROJECTION:
+            return (
+                "To DECREASE cost inflation (Reverse): \n"
+                "- Consistently SUCCESS_UNDER_BUDGET\n"
+                "- Avoid COST_THRESHOLD_EXCEEDED errors"
+            )
+            
+        if dim == AdjustmentDimension.RISK_ESTIMATION:
+            return (
+                "To CALIBRATE risk (Reduce Bias): \n"
+                "- Execute SUCCESS_LOW_RISK scenarios\n"
+                "- Avoid ESCALATION_TRIGGERED events"
+            )
+            
+        if dim == AdjustmentDimension.AUTHORITY_THRESHOLD:
+            return (
+                "To RELAX authority (Reverse): \n"
+                "- (Currently Manual) High trust scores over time.\n"
+                "- Verify AUTHORITY_BLOCKED counts drop to zero."
+            )
+            
+        return "Dimension not fully documented in reversibility logic."

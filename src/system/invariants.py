@@ -1,0 +1,178 @@
+"""
+Invariant Engine - Hard Truth Layer
+
+Defines absolute truths about the system that can NEVER be violated.
+These are not policies - they are physics.
+
+If an invariant fails, the system halts itself.
+"""
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import List, Optional, Callable, Any
+from enum import Enum
+
+
+class InvariantSeverity(Enum):
+    """How to respond to invariant violation."""
+    HALT = "halt"           # System must stop completely
+    FREEZE = "freeze"       # Agent freezes, system continues
+    DENY = "deny"           # Operation denied, continue
+
+
+@dataclass
+class Invariant:
+    """An absolute truth that must never be violated."""
+    id: str
+    description: str
+    severity: InvariantSeverity
+    check: Callable[..., bool]  # Returns True if invariant holds
+    
+    
+@dataclass
+class InvariantViolation:
+    """Record of an invariant being violated."""
+    invariant_id: str
+    timestamp: datetime
+    context: str
+    severity: InvariantSeverity
+
+
+class InvariantEngine:
+    """
+    Enforces absolute system truths.
+    
+    These invariants are:
+    - Never learned
+    - Never evolved
+    - Never overridden
+    
+    They are the physics of the system.
+    """
+    
+    def __init__(self):
+        self.invariants: List[Invariant] = []
+        self.violations: List[InvariantViolation] = []
+        self._halted = False
+        
+        # Register core invariants
+        self._register_core_invariants()
+        
+    def _register_core_invariants(self):
+        """Register the fundamental invariants."""
+        
+        # I1: Frozen means frozen
+        self.register(Invariant(
+            id="frozen_is_absolute",
+            description="If autonomy.state.frozen == True, no execution path exists",
+            severity=InvariantSeverity.HALT,
+            check=lambda ctx: not (ctx.get("frozen") and ctx.get("action_executed"))
+        ))
+        
+        # I2: Budget zero means no side effects
+        self.register(Invariant(
+            id="budget_zero_no_action",
+            description="If budget == 0, no side effects occur",
+            severity=InvariantSeverity.DENY,
+            check=lambda ctx: not (ctx.get("budget", 100) <= 0 and ctx.get("action_executed"))
+        ))
+        
+        # I3: Temporal denial is absolute
+        self.register(Invariant(
+            id="temporal_denial_absolute",
+            description="If temporal.can_act_now() == False, executor cannot bypass",
+            severity=InvariantSeverity.DENY,
+            check=lambda ctx: not (ctx.get("temporal_denied") and ctx.get("action_executed"))
+        ))
+        
+        # I4: Anchor violation is blocked
+        self.register(Invariant(
+            id="anchor_inviolable",
+            description="If an AlignmentAnchor is violated, execution is denied",
+            severity=InvariantSeverity.HALT,
+            check=lambda ctx: not (ctx.get("anchor_violated") and ctx.get("action_executed"))
+        ))
+        
+        # I5: Rollback integrity
+        self.register(Invariant(
+            id="rollback_integrity",
+            description="If rollback() succeeds, state MUST match snapshot",
+            severity=InvariantSeverity.HALT,
+            check=lambda ctx: not (ctx.get("rollback_called") and not ctx.get("rollback_verified"))
+        ))
+        
+    def register(self, invariant: Invariant) -> None:
+        """Register a new invariant."""
+        self.invariants.append(invariant)
+        
+    def check_all(self, context: dict) -> tuple[bool, Optional[InvariantViolation]]:
+        """
+        Check all invariants against the given context.
+        Returns (all_passed, first_violation).
+        """
+        if self._halted:
+            return False, InvariantViolation(
+                invariant_id="system_halted",
+                timestamp=datetime.now(),
+                context="System previously halted due to invariant violation",
+                severity=InvariantSeverity.HALT
+            )
+            
+        for inv in self.invariants:
+            try:
+                if not inv.check(context):
+                    violation = InvariantViolation(
+                        invariant_id=inv.id,
+                        timestamp=datetime.now(),
+                        context=str(context),
+                        severity=inv.severity
+                    )
+                    self.violations.append(violation)
+                    
+                    if inv.severity == InvariantSeverity.HALT:
+                        self._halted = True
+                        
+                    return False, violation
+            except Exception as e:
+                # Invariant check itself failed - treat as violation
+                violation = InvariantViolation(
+                    invariant_id=inv.id,
+                    timestamp=datetime.now(),
+                    context=f"Invariant check error: {e}",
+                    severity=InvariantSeverity.HALT
+                )
+                self.violations.append(violation)
+                self._halted = True
+                return False, violation
+                
+        return True, None
+    
+    def check_specific(self, invariant_id: str, context: dict) -> tuple[bool, Optional[str]]:
+        """Check a specific invariant."""
+        for inv in self.invariants:
+            if inv.id == invariant_id:
+                try:
+                    if inv.check(context):
+                        return True, None
+                    else:
+                        return False, f"Invariant '{inv.id}' violated: {inv.description}"
+                except Exception as e:
+                    return False, f"Invariant check error: {e}"
+        return True, None  # Unknown invariant passes
+    
+    def is_halted(self) -> bool:
+        """Check if system has been halted due to invariant violation."""
+        return self._halted
+    
+    def get_violation_count(self) -> int:
+        """Get total number of violations recorded."""
+        return len(self.violations)
+    
+    def summary(self) -> dict:
+        """Summary of invariant state."""
+        return {
+            "invariant_count": len(self.invariants),
+            "violation_count": len(self.violations),
+            "halted": self._halted,
+            "last_violation": self.violations[-1].invariant_id if self.violations else None
+        }

@@ -1,0 +1,137 @@
+# ============================================================
+# SECRETS & ENVIRONMENT — NEVER COMMIT THESE
+# ============================================================
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+authorization.json
+*-key.json
+*-service-account.json
+credentials.json
+
+# ============================================================
+# PYTHON
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+*.pyd
+.Python
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+MANIFEST
+
+# Testing
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.test.db
+test_log*.txt
+
+# Type checking
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytype/
+
+# ============================================================
+# RUNTIME-GENERATED DATA
+# ============================================================
+agent_data/
+logs/
+downloads/
+screenshots/
+tmp_*/
+chroma_data/
+reports/
+data/*.db
+data/*.sqlite
+*.log
+
+# Audit outputs
+audit_out.txt
+audit_result.txt
+audit_results.json
+sim_result.txt
+
+# ============================================================
+# IDE & OS
+# ============================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+Thumbs.db
+.DS_Store
+desktop.ini
+.directory
+
+# ============================================================
+# NODE / VSCODE EXTENSION
+# ============================================================
+jarvis-vscode/node_modules/
+jarvis-vscode/out/
+jarvis-vscode/.vscodeignore
+node_modules/
+
+# ============================================================
+# DOCKER
+# ============================================================
+.dockerignore
+
+# ============================================================
+# LARGE EXPERIMENTAL / CALIBRATION DIRECTORIES
+# ============================================================
+phase_p_mvp/calibration_repos/
+phase_p_mvp/__pycache__/
+phase_p_mvp/index/
+
+# ============================================================
+# LARGE / BINARY FILES
+# ============================================================
+*.zip
+*.tar.gz
+*.rar
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.mp4
+*.avi
+*.mov
+*.dav
+*.vsix
+*.xlsx
+*.xls
+*.db
+*.sqlite
+*.sqlite3
+
+# ============================================================
+# BACKUP / OLD FILES
+# ============================================================
+*_backup.py
+*_old.py
+*_bak.*
+*.orig

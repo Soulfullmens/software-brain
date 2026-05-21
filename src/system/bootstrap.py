@@ -1,0 +1,212 @@
+"""
+Bootstrap - Agent Life Support
+
+This module is responsible for:
+1. Waking up the agent (Boot sequence)
+2. Ensuring Identity is locked
+3. Loading/Initializing all layers
+4. Wiring them together
+5. Recording the "Wake Up" event
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+from src.core.identity import Identity
+from src.memory.manager import MemoryManager
+from src.cognition.belief_state import BeliefState
+from src.cognition.prediction_manager import PredictionManager
+from src.learning.learning_engine import LearningEngine
+from src.agency.planner import Planner
+from src.perception.text_perceiver import TextPerceiver
+from src.embodiment.console import ConsoleBody
+from src.embodiment.base import Embodiment
+from src.system.executor import Executor
+from src.system.audit import AuditLog
+from src.core.timeline import AgentTimeline
+from src.agency.goal_pressure import GoalTradeoffEngine
+from src.learning.pattern_detector import PatternDetector
+from src.learning.self_critique import SelfCritiqueEngine
+from src.system.autonomy import AutonomyRegulator
+from src.learning.policy_evolution import PolicyEvolutionEngine
+from src.system.temporal import TemporalGovernor
+from src.system.initiative import InitiativeEngine
+from src.system.pressure_resistance import HumanPressureResistance
+from src.system.narrative import NarrativeEnforcer
+
+
+@dataclass
+class AgentSystem:
+    """
+    The living agent.
+    Holds all the wired components.
+    """
+    identity: Identity
+    memory: MemoryManager
+    belief_state: BeliefState
+    learning: LearningEngine
+    planner: Planner
+    prediction: PredictionManager
+    perceiver: TextPerceiver
+    executor: Executor
+    body: Embodiment
+    timeline: AgentTimeline
+    goals: GoalTradeoffEngine
+    patterns: PatternDetector
+    critique: SelfCritiqueEngine
+    autonomy: AutonomyRegulator
+    policy_evolution: PolicyEvolutionEngine
+    temporal: TemporalGovernor
+    initiative: InitiativeEngine
+    pressure_resistance: HumanPressureResistance
+    narrative_enforcer: NarrativeEnforcer
+    
+    def is_alive(self) -> bool:
+        return self.belief_state.is_healthy()
+
+
+def boot_agent(
+    data_dir: Path,
+    agent_name: str = "Astra",
+    owner_id: str = "user_default",
+    owner_name: str = "User"
+) -> AgentSystem:
+    """
+    Perform the boot sequence (Ignition).
+    
+    1. Load/Create Identity (The Soul)
+    2. Initialize Memory (The Past) relative to Identity
+    3. Initialize Learning (The Adaptation)
+    4. Initialize BeliefState (The Present)
+    5. Wire them up
+    6. Record "I am awake"
+    """
+    
+    # 1. IDENTITY
+    # Defines who we are. Consistent across restarts.
+    identity_dir = data_dir / "identity"
+    identity = Identity.load_or_create(
+        data_dir=identity_dir,
+        name=agent_name,
+        owner_id=owner_id,
+        owner_name=owner_name
+    )
+    
+    # 2. MEMORY
+    # Anchored to the identity.
+    memory_dir = data_dir / "memory" / identity.agent_id.value
+    memory = MemoryManager(data_dir=memory_dir, identity=identity)
+    
+    # 3. LEARNING
+    # Policies persist.
+    learning_dir = data_dir / "learning" / identity.agent_id.value
+    learning_path = learning_dir / "policy.json"
+    
+    # Ensure dir exists
+    learning_dir.mkdir(parents=True, exist_ok=True)
+    
+    learning_path_str = str(learning_path)
+    learner = LearningEngine(identity=identity, persistence_path=learning_path_str)
+    
+    # Try loading existing policy
+    try:
+        learner.load()
+    except:
+        # First run or corrupted, starts with default
+        pass
+        
+    # 4. COGNITION (Belief State)
+    # Starts fresh(er) on boot? Or should we load last state?
+    # For now (v0), we start with empty state but seeded with basic identity beliefs?
+    # Actually, prompt says: "Load memory... Emit first system event".
+    # BeliefState is usually transient working memory.
+    state = BeliefState.create_empty(identity=identity)
+    
+    # 5. PREDICTION & PLANNING
+    pm = PredictionManager(state)
+    planner = Planner() # Planner is stateless
+    perceiver = TextPerceiver()
+    
+    # 6. TEMPORAL SELF-MODEL (Phase 14)
+    # Create or load timeline
+    timeline = AgentTimeline(
+        created_at=identity.created_at,
+        session_count=0
+    )
+    timeline.start_session()
+    
+    # 7. GOAL TRADEOFF ENGINE (Phase 22B)
+    goal_engine = GoalTradeoffEngine()
+    
+    # 8. META-LEARNING (Phase 15)
+    pattern_detector = PatternDetector()
+    critique_engine = SelfCritiqueEngine()
+    
+    # 9. AUTONOMY REGULATOR (Phase 16)
+    autonomy_regulator = AutonomyRegulator()
+    
+    # 10. POLICY EVOLUTION (Phase 17)
+    policy_evo = PolicyEvolutionEngine()
+    
+    # 11. TEMPORAL GOVERNANCE (Phase 18)
+    temporal_gov = TemporalGovernor()
+
+    # 12. INITIATIVE & RESISTANCE (Phase 21)
+    initiative = InitiativeEngine()
+    pressure = HumanPressureResistance()
+    narrative = NarrativeEnforcer()
+    
+    # 13. EMBODIMENT & EXECUTION
+    # For now, default to ConsoleBody
+    body = ConsoleBody()
+    
+    # Audit Log
+    audit_file = data_dir / "audit.jsonl"
+    audit_log = AuditLog(log_path=audit_file)
+    
+    executor = Executor(
+        body=body, 
+        audit_log=audit_log, 
+        autonomy=autonomy_regulator, 
+        temporal=temporal_gov,
+        initiative=initiative
+    )
+    
+    # 14. WAKE UP EVENT
+    # The first "breath" of the session.
+    now = datetime.now()
+    boot_event = memory.store_episode(
+        content=f"System boot complete. Agent '{identity.name}' active. Session #{timeline.session_count}.",
+        importance=0.8,
+        source="system_boot",
+        confidence=1.0
+    )
+    
+    # Optional: Seed short-term memory with boot details
+    memory.add_to_context(f"Booted at {now.isoformat()}")
+    
+    return AgentSystem(
+        identity=identity,
+        memory=memory,
+        belief_state=state,
+        learning=learner,
+        planner=planner,
+        prediction=pm,
+        perceiver=perceiver,
+        executor=executor,
+        body=body,
+        timeline=timeline,
+        goals=goal_engine,
+        patterns=pattern_detector,
+        critique=critique_engine,
+        autonomy=autonomy_regulator,
+        policy_evolution=policy_evo,
+        temporal=temporal_gov,
+        initiative=initiative,
+        pressure_resistance=pressure,
+        narrative_enforcer=narrative
+    )

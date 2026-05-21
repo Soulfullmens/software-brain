@@ -1,0 +1,79 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\ops\environment.py
+"""
+Operational Environment Logic
+Shared library for fingerprinting the runtime environment.
+"""
+import sys
+import platform
+import shutil
+import subprocess
+import hashlib
+from typing import Dict, Any
+
+def get_python_fingerprint() -> Dict[str, str]:
+    """Capture Python runtime details."""
+    return {
+        "executable": sys.executable,
+        "version": sys.version,
+        "version_info": str(sys.version_info),
+        "api_version": str(sys.api_version),
+        "platform": sys.platform
+    }
+
+def get_os_fingerprint() -> Dict[str, str]:
+    """Capture OS details."""
+    return {
+        "system": platform.system(),
+        "release": platform.release(),
+        "version": platform.version(),
+        "machine": platform.machine(),
+        "processor": platform.processor(),
+        "node": platform.node()
+    }
+
+def get_disk_state(path: str = ".") -> Dict[str, Any]:
+    """Capture disk usage stats."""
+    try:
+        total, used, free = shutil.disk_usage(path)
+        return {
+            "path": path,
+            "total_bytes": total,
+            "used_bytes": used,
+            "free_bytes": free,
+            "percent_free": round((free / total) * 100, 2)
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+def get_pip_fingerprint() -> str:
+    """
+    Capture hash of installed packages (pip freeze).
+    Returns SHA256 hash of the sorted freeze output.
+    """
+    try:
+        # Run pip freeze
+        result = subprocess.run(
+            [sys.executable, "-m", "pip", "freeze"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        output = result.stdout
+        
+        # Sort lines to ensure determinism
+        lines = sorted([line.strip() for line in output.splitlines() if line.strip()])
+        combined = "\n".join(lines)
+        
+        return hashlib.sha256(combined.encode("utf-8")).hexdigest()
+    except Exception as e:
+        return f"ERROR: {str(e)}"
+
+def get_full_environment_snapshot() -> Dict[str, Any]:
+    """Aggregate all fingerprints into a single snapshot."""
+    return {
+        "python": get_python_fingerprint(),
+        "os": get_os_fingerprint(),
+        "disk": get_disk_state(),
+        "pip_hash": get_pip_fingerprint()
+    }

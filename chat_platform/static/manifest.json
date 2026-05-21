@@ -1,0 +1,16 @@
+{
+  "name": "NOMAD SecureChat",
+  "short_name": "NOMADChat",
+  "description": "End-to-end encrypted offline-first chat. Powered by your personal AI.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0a0a1a",
+  "background_color": "#050510",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ],
+  "categories": ["social", "communication"],
+  "prefer_related_applications": false
+}

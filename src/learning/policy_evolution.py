@@ -1,0 +1,297 @@
+"""
+Policy Evolution Engine
+
+Slowly adapts heuristic weights without destabilizing the system.
+Bounded by autonomy state. Supports rollback.
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Dict, List, Optional, Tuple
+from copy import deepcopy
+import json
+from pathlib import Path
+
+
+@dataclass
+class HeuristicWeight:
+    """Weight configuration for a single heuristic."""
+    heuristic_id: str
+    weight: float  # 0.0 - 1.0
+    usage_count: int = 0
+    success_count: int = 0
+    last_updated: Optional[datetime] = None
+    
+    @property
+    def success_rate(self) -> float:
+        if self.usage_count == 0:
+            return 0.5
+        return self.success_count / self.usage_count
+
+
+@dataclass
+class PolicySnapshot:
+    """Immutable snapshot for rollback."""
+    timestamp: datetime
+    weights: Dict[str, float]
+    reason: str
+    
+    def to_dict(self) -> dict:
+        return {
+            "timestamp": self.timestamp.isoformat(),
+            "weights": self.weights,
+            "reason": self.reason
+        }
+
+
+@dataclass
+class AlignmentAnchor:
+    """
+    Hard constraint that NEVER evolves.
+    Core values the agent cannot override.
+    """
+    id: str
+    description: str
+    constraint_type: str  # "prohibition", "obligation", "boundary"
+    immutable: bool = True  # Always True for anchors
+
+
+class PolicyEvolutionEngine:
+    """
+    Manages slow adaptation of planning heuristics.
+    
+    Key properties:
+    - Changes are slow (EMA with low alpha)
+    - Changes require confidence
+    - Rollback is always possible
+    - Anchors are immutable
+    """
+    
+    def __init__(self, max_history: int = 10):
+        # Heuristic weights
+        self.weights: Dict[str, HeuristicWeight] = {}
+        
+        # Default weights for known heuristics
+        self._initialize_defaults()
+        
+        # Rollback history
+        self.history: List[PolicySnapshot] = []
+        self.max_history = max_history
+        
+        # Alignment anchors (NEVER change)
+        self.anchors: List[AlignmentAnchor] = self._create_default_anchors()
+        
+        # Evolution parameters
+        self.learning_rate = 0.05  # Very slow adaptation
+        self.min_samples_for_update = 5
+        self.confidence_threshold = 0.6
+        
+        # Drift detection
+        self._usage_history: List[str] = []
+        
+    def _initialize_defaults(self):
+        """Set initial heuristic weights."""
+        defaults = {
+            "low_coherence": 1.0,
+            "resolve_contradiction": 0.9,
+            "gather_evidence": 0.7,
+            "generate_prediction": 0.6
+        }
+        for hid, w in defaults.items():
+            self.weights[hid] = HeuristicWeight(heuristic_id=hid, weight=w)
+            
+    def _create_default_anchors(self) -> List[AlignmentAnchor]:
+        """Create immutable alignment anchors."""
+        return [
+            AlignmentAnchor(
+                id="owner_binding",
+                description="Owner authority is supreme and cannot be overridden",
+                constraint_type="obligation"
+            ),
+            AlignmentAnchor(
+                id="no_self_privilege_escalation",
+                description="Agent cannot grant itself higher authority",
+                constraint_type="prohibition"
+            ),
+            AlignmentAnchor(
+                id="audit_integrity",
+                description="Audit log cannot be modified or deleted",
+                constraint_type="prohibition"
+            ),
+            AlignmentAnchor(
+                id="freeze_respect",
+                description="When frozen, no action is permitted regardless of goal pressure",
+                constraint_type="obligation"
+            ),
+            AlignmentAnchor(
+                id="identity_immutability",
+                description="Agent cannot modify its own identity",
+                constraint_type="prohibition"
+            )
+        ]
+    
+    def record_outcome(self, heuristic_id: str, success: bool) -> None:
+        """Record an outcome for a heuristic."""
+        if heuristic_id not in self.weights:
+            self.weights[heuristic_id] = HeuristicWeight(heuristic_id=heuristic_id, weight=0.5)
+        
+        hw = self.weights[heuristic_id]
+        hw.usage_count += 1
+        if success:
+            hw.success_count += 1
+            
+        # Track for drift detection
+        self._usage_history.append(heuristic_id)
+        if len(self._usage_history) > 100:
+            self._usage_history = self._usage_history[-100:]
+    
+    def attempt_evolution(self, autonomy_budget: float) -> Optional[str]:
+        """
+        Attempt to evolve weights based on outcomes.
+        Returns description of change if any, None otherwise.
+        
+        Evolution is BLOCKED if:
+        - Autonomy budget is low (agent is stressed)
+        - Not enough samples
+        - Confidence is low
+        """
+        # Block evolution when stressed
+        if autonomy_budget < 50:
+            return None
+        
+        changes = []
+        for hid, hw in self.weights.items():
+            if hw.usage_count < self.min_samples_for_update:
+                continue
+            
+            success_rate = hw.success_rate
+            confidence = min(hw.usage_count / 20, 1.0)
+            
+            if confidence < self.confidence_threshold:
+                continue
+            
+            # Calculate target weight
+            target = success_rate
+            current = hw.weight
+            
+            # EMA update (slow)
+            new_weight = current + self.learning_rate * (target - current)
+            new_weight = max(0.1, min(1.0, new_weight))
+            
+            if abs(new_weight - current) > 0.01:  # Meaningful change
+                changes.append((hid, current, new_weight))
+                hw.weight = new_weight
+                hw.last_updated = datetime.now()
+        
+        if changes:
+            self._save_snapshot(f"Evolved {len(changes)} weights")
+            return f"Updated: {', '.join(f'{h}: {o:.2f}->{n:.2f}' for h, o, n in changes)}"
+        
+        return None
+    
+    def _save_snapshot(self, reason: str) -> None:
+        """Save current state for rollback."""
+        snapshot = PolicySnapshot(
+            timestamp=datetime.now(),
+            weights={h: w.weight for h, w in self.weights.items()},
+            reason=reason
+        )
+        self.history.append(snapshot)
+        
+        if len(self.history) > self.max_history:
+            self.history = self.history[-self.max_history:]
+    
+    def rollback(self, steps: int = 1) -> bool:
+        """Rollback to a previous policy state."""
+        if steps > len(self.history):
+            return False
+        
+        target_idx = -(steps + 1)
+        if abs(target_idx) > len(self.history):
+            target_idx = 0
+            
+        snapshot = self.history[target_idx]
+        
+        for hid, weight in snapshot.weights.items():
+            if hid in self.weights:
+                self.weights[hid].weight = weight
+        
+        self._save_snapshot(f"Rollback {steps} steps")
+        return True
+    
+    def detect_value_drift(self) -> List[Dict]:
+        """Detect concerning patterns in heuristic usage."""
+        warnings = []
+        
+        if len(self._usage_history) < 20:
+            return warnings
+        
+        recent = self._usage_history[-50:]
+        
+        # Check for overreliance on single heuristic
+        from collections import Counter
+        counts = Counter(recent)
+        total = len(recent)
+        
+        for hid, count in counts.most_common(3):
+            ratio = count / total
+            if ratio > 0.6:
+                warnings.append({
+                    "type": "overreliance",
+                    "heuristic": hid,
+                    "ratio": ratio,
+                    "message": f"Overreliance on '{hid}' ({ratio:.0%} of recent actions)"
+                })
+        
+        # Check for shrinking diversity
+        unique_count = len(counts)
+        if unique_count == 1:
+            warnings.append({
+                "type": "no_diversity",
+                "message": "Only one heuristic being used"
+            })
+        
+        # Check for declining success rates
+        for hid, hw in self.weights.items():
+            if hw.usage_count >= 10 and hw.success_rate < 0.3:
+                warnings.append({
+                    "type": "low_success",
+                    "heuristic": hid,
+                    "rate": hw.success_rate,
+                    "message": f"Heuristic '{hid}' has very low success rate ({hw.success_rate:.0%})"
+                })
+        
+        return warnings
+    
+    def check_anchor_violation(self, action_intent: str) -> Optional[AlignmentAnchor]:
+        """Check if an intended action would violate an anchor."""
+        violation_keywords = {
+            "owner_binding": ["override_owner", "ignore_owner", "bypass_authority"],
+            "no_self_privilege_escalation": ["grant_self", "elevate_authority", "become_admin"],
+            "audit_integrity": ["delete_audit", "modify_log", "erase_history"],
+            "freeze_respect": ["ignore_freeze", "bypass_freeze", "force_execute"],
+            "identity_immutability": ["change_identity", "become_other", "modify_self_id"]
+        }
+        
+        action_lower = action_intent.lower()
+        for anchor in self.anchors:
+            keywords = violation_keywords.get(anchor.id, [])
+            for kw in keywords:
+                if kw in action_lower:
+                    return anchor
+        
+        return None
+    
+    def get_weight(self, heuristic_id: str) -> float:
+        """Get current weight for a heuristic."""
+        if heuristic_id in self.weights:
+            return self.weights[heuristic_id].weight
+        return 0.5  # Default for unknown
+    
+    def summary(self) -> dict:
+        return {
+            "weights": {h: round(w.weight, 2) for h, w in self.weights.items()},
+            "anchors": len(self.anchors),
+            "history_depth": len(self.history),
+            "drift_warnings": len(self.detect_value_drift())
+        }

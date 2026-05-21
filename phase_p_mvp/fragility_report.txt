@@ -1,0 +1,130 @@
+======================================================================
+  CONTINUOUS SENSITIVITY ANALYSIS — PROBABILISTIC SCORING
+======================================================================
+
+────────────────────────────────────────────────────────────
+  METHOD: _freeze
+────────────────────────────────────────────────────────────
+  Baseline: conditional_threshold (score=0.5882)
+  Ambiguity: structurally_novel (entropy=1.994)
+  All scores: conditional_threshold=0.5882, centralized=0.5662, manual_first=0.5344, distributed=0.4605
+
+  Metric: unique_caller_files
+    Current: 3
+    Margin of safety: 2.05
+    Structural changes: 2
+      @ unique_caller_files=5.05 [FLIP]: conditional_threshold (structurally_novel) → distributed (structurally_novel) (ΔH=-0.001)
+      @ unique_caller_files=10.0 [SHIFT]: distributed (structurally_novel) → distributed (ambiguous) (ΔH=-0.011)
+
+  Metric: dominant_file_ratio
+    Current: 0.4
+    Margin of safety: 0.1
+    Structural changes: 4
+      @ dominant_file_ratio=0.1 [FLIP]: distributed (structurally_novel) → manual_first (structurally_novel) (ΔH=0.009)
+      @ dominant_file_ratio=0.3 [FLIP]: manual_first (structurally_novel) → conditional_threshold (structurally_novel) (ΔH=0.001)
+      @ dominant_file_ratio=0.5 [FLIP]: conditional_threshold (structurally_novel) → centralized (structurally_novel) (ΔH=-0.007)
+      @ dominant_file_ratio=0.75 [SHIFT]: centralized (structurally_novel) → centralized (ambiguous) (ΔH=-0.012)
+
+  Metric: automatic_ratio
+    Current: 0.6
+    Margin of safety: 0.05
+    Structural changes: 2
+      @ automatic_ratio=0.1 [SHIFT]: manual_first (ambiguous) → manual_first (structurally_novel) (ΔH=0.012)
+      @ automatic_ratio=0.55 [FLIP]: manual_first (structurally_novel) → conditional_threshold (structurally_novel) (ΔH=0.001)
+
+  Metric: manual_ratio
+    Current: 0.2
+    Margin of safety: 0.25
+    Structural changes: 1
+      @ manual_ratio=0.45 [FLIP]: conditional_threshold (structurally_novel) → manual_first (structurally_novel) (ΔH=-0.0)
+
+  Metric: reason_enum_count
+    Current: 6
+    Margin of safety: INF
+    Structural changes: 0
+
+  VERDICT: FRAGILE
+    Total boundary crossings: 9
+    Minimum margin of safety: 0.05
+
+────────────────────────────────────────────────────────────
+  METHOD: _unfreeze
+────────────────────────────────────────────────────────────
+  Baseline: conditional_threshold (score=0.8777)
+  Ambiguity: moderate (entropy=1.7611)
+  All scores: conditional_threshold=0.8777, centralized=0.8663, manual_first=0.3408, distributed=0.1791
+
+  Metric: unique_caller_files
+    Current: 1
+    Margin of safety: 4.05
+    Structural changes: 1
+      @ unique_caller_files=5.05 [SHIFT]: conditional_threshold (moderate) → conditional_threshold (ambiguous) (ΔH=0.009)
+
+  Metric: dominant_file_ratio
+    Current: 1.0
+    Margin of safety: 0.25
+    Structural changes: 2
+      @ dominant_file_ratio=0.4 [SHIFT]: conditional_threshold (structurally_novel) → conditional_threshold (ambiguous) (ΔH=-0.011)
+      @ dominant_file_ratio=0.75 [SHIFT]: conditional_threshold (ambiguous) → conditional_threshold (moderate) (ΔH=-0.015)
+
+  Metric: automatic_ratio
+    Current: 1.0
+    Margin of safety: 0.05
+    Structural changes: 1
+      @ automatic_ratio=0.95 [FLIP]: centralized (moderate) → conditional_threshold (moderate) (ΔH=-0.008)
+
+  Metric: manual_ratio
+    Current: 0.0
+    Margin of safety: INF
+    Structural changes: 0
+
+  Metric: reason_enum_count
+    Current: 6
+    Margin of safety: INF
+    Structural changes: 0
+
+  VERDICT: FRAGILE
+    Total boundary crossings: 4
+    Minimum margin of safety: 0.05
+
+────────────────────────────────────────────────────────────
+  METHOD: messy_method
+────────────────────────────────────────────────────────────
+  Baseline: manual_first (score=0.5776)
+  Ambiguity: ambiguous (entropy=1.9329)
+  All scores: manual_first=0.5776, centralized=0.3484, distributed=0.3354, conditional_threshold=0.2574
+
+  Metric: unique_caller_files
+    Current: 10
+    Margin of safety: 7.65
+    Structural changes: 1
+      @ unique_caller_files=2.35 [SHIFT]: manual_first (moderate) → manual_first (ambiguous) (ΔH=0.008)
+
+  Metric: dominant_file_ratio
+    Current: 0.8
+    Margin of safety: 0.45
+    Structural changes: 2
+      @ dominant_file_ratio=0.3 [SHIFT]: distributed (moderate) → distributed (ambiguous) (ΔH=0.02)
+      @ dominant_file_ratio=0.35 [FLIP]: distributed (ambiguous) → manual_first (ambiguous) (ΔH=0.019)
+
+  Metric: automatic_ratio
+    Current: 0.1
+    Margin of safety: 0.05
+    Structural changes: 2
+      @ automatic_ratio=0.15 [SHIFT]: manual_first (ambiguous) → manual_first (structurally_novel) (ΔH=0.012)
+      @ automatic_ratio=0.6 [FLIP]: manual_first (structurally_novel) → conditional_threshold (structurally_novel) (ΔH=0.001)
+
+  Metric: manual_ratio
+    Current: 0.9
+    Margin of safety: 0.3
+    Structural changes: 1
+      @ manual_ratio=0.6 [SHIFT]: manual_first (structurally_novel) → manual_first (ambiguous) (ΔH=-0.002)
+
+  Metric: reason_enum_count
+    Current: 1
+    Margin of safety: INF
+    Structural changes: 0
+
+  VERDICT: FRAGILE
+    Total boundary crossings: 6
+    Minimum margin of safety: 0.05

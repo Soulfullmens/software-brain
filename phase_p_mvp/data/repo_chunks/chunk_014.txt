@@ -1,0 +1,178 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\cognition\integration.py
+"""
+Integration Engine - Claims -> Belief Updates
+
+This module applies claims to the belief state.
+It does NOT interpret meaning. It flows confidence.
+
+RULES (LOCKED):
+1. If target exists:
+   - Reinforce if claim confidence >= 0.6
+   - Contradict if claim confidence < 0.4
+   - Ignore otherwise
+2. If target does NOT exist:
+   - Create LOW confidence belief (claim.conf * 0.5)
+   - Store source
+3. Do not delete anything
+4. Do not resolve contradictions
+5. Do not compute coherence (done elsewhere)
+6. Do not touch Memory
+
+NOTE:
+Reinforcement and penalty scaling is policy-level logic.
+Values are locked for v0 and may be tuned by Learning (Layer 4).
+"""
+
+from typing import Optional
+
+from .belief_state import BeliefState
+from .claim import Claim
+from .entity import Entity
+from .relation import Relation
+from src.learning.policy import LearningPolicy
+
+
+def integrate_claim(state: BeliefState, claim: Claim, policy: Optional[LearningPolicy] = None) -> None:
+    """
+    Apply a claim to the belief state.
+    Mutates belief state directly.
+    
+    Args:
+        state: The belief state to update
+        claim: The claim to integrate
+        policy: Optional learning policy to tune weights. If None, uses defaults.
+    """
+    # Use default policy if none provided
+    if policy is None:
+        policy = LearningPolicy()
+
+    if claim.type == "entity":
+        _integrate_entity_claim(state, claim, policy)
+    elif claim.type == "relation":
+        _integrate_relation_claim(state, claim, policy)
+    # Prediction integration deferred to Step 5
+
+
+def _integrate_entity_claim(state: BeliefState, claim: Claim, policy: LearningPolicy) -> None:
+    """Handle entity claims."""
+    # Check if entity exists in BeliefState (via EntityRef) OR full Entity lookup
+    # Note: In Step 1, we used EntityRef. In Step 2 we made Entity.
+    # We need to bridge this.
+    
+    # Check if we have the entity object fully managed
+    # Since BeliefState.entities is dict[str, EntityRef], we check there first.
+    # However, EntityRef was a placeholder. Now we have full Entity objects.
+    # We must treat state.entities values as the source of truth.
+    # For now, we assume state.entities holds objects with .id, .reinforce, .contradict
+    
+    entity = state.entities.get(claim.target_id)
+    
+    if entity:
+        # EXISTING ENTITY
+        
+        # Apply Policy: Source Trust
+        # Effective confidence = claim.confidence * trust
+        trust = policy.get_trust(claim.source)
+        effective_confidence = claim.confidence * trust
+        
+        if effective_confidence >= 0.6:
+            # Reinforce
+            # Strength formula guided by policy
+            # strength = base + (conf - 0.6) * slope
+            strength = policy.reinforcement_base + (effective_confidence - 0.6) * policy.reinforcement_slope
+            entity.reinforce(strength, claim.source)
+            
+        elif effective_confidence < 0.4:
+            # Contradict
+            # Penalty formula guided by policy
+            # penalty = base + (0.4 - conf) * slope
+            penalty = policy.penalty_base + (0.4 - effective_confidence) * policy.penalty_slope
+            entity.contradict(penalty, claim.source)
+            
+    else:
+        # NEW ENTITY
+        # Apply Policy: Source Trust for creation too?
+        # Yes, untrusted sources shouldn't spawn entities easily.
+        trust = policy.get_trust(claim.source)
+        effective_confidence = claim.confidence * trust
+        
+        # Only create if positive confidence
+        if effective_confidence >= 0.4:
+            # Create new entity with LOWER confidence
+            # We trust existence less than update
+            initial_conf = effective_confidence * 0.5
+            
+            # Extract name/type from payload if available, else generic
+            name = "Unknown"
+            etype = "unknown"
+            props = {}
+            
+            if claim.payload:
+                name = claim.payload.get("name", name)
+                etype = claim.payload.get("type", etype)
+                props = claim.payload.get("properties", props)
+            
+            # Create using Entity class
+            new_entity = Entity.create(
+                type=etype,
+                name=name,
+                source=claim.source,
+                confidence=initial_conf,
+                properties=props
+            )
+            # Force ID to match claim target (since we pre-resolved/generated it upstream)
+            new_entity.id = claim.target_id
+            
+            # Add to state (using Duck Typing - BeliefState expects objects with these methods)
+            state.add_entity(new_entity)
+
+
+def _integrate_relation_claim(state: BeliefState, claim: Claim, policy: LearningPolicy) -> None:
+    """Handle relation claims."""
+    # Relation lookups are trickier since they are in a list
+    # But claim provides target_id, so we assume unique ID for relation
+    
+    relation = next((r for r in state.relations if r.id == claim.target_id), None)
+    
+    if relation:
+        # EXISTING RELATION
+        
+        trust = policy.get_trust(claim.source)
+        effective_confidence = claim.confidence * trust
+        
+        if effective_confidence >= 0.6:
+            strength = policy.reinforcement_base + (effective_confidence - 0.6) * policy.reinforcement_slope
+            relation.reinforce(strength, claim.source)
+            
+        elif effective_confidence < 0.4:
+            penalty = policy.penalty_base + (0.4 - effective_confidence) * policy.penalty_slope
+            relation.contradict(penalty, claim.source)
+            
+    else:
+        # NEW RELATION
+        trust = policy.get_trust(claim.source)
+        effective_confidence = claim.confidence * trust
+        
+        if effective_confidence >= 0.4:
+            initial_conf = effective_confidence * 0.5
+            
+            subj = "unknown"
+            pred = "related_to"
+            obj = "unknown"
+            
+            if claim.payload:
+                subj = claim.payload.get("subject_id", subj)
+                pred = claim.payload.get("predicate", pred)
+                obj = claim.payload.get("object_id", obj)
+            
+            new_relation = Relation.create(
+                subject_id=subj,
+                predicate=pred,
+                object_id=obj,
+                source=claim.source,
+                confidence=initial_conf
+            )
+            new_relation.id = claim.target_id
+            
+            state.add_relation(new_relation)

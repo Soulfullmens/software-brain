@@ -1,0 +1,113 @@
+{
+  "_freeze": {
+    "metrics": {
+      "unique_caller_files": 2.0,
+      "num_external_modules": 1.0,
+      "dominant_file_ratio": 0.5,
+      "dominant_file": "system\\autonomy.py",
+      "automatic_ratio": 0.5,
+      "manual_ratio": 0.0,
+      "reason_enum_count": 0,
+      "is_recursive": 0.0,
+      "loop_count": 0.0,
+      "try_block_ratio": 0.0,
+      "exception_types_count": 0.0,
+      "is_async": 0.0,
+      "await_count": 0.0,
+      "avg_args_count": 2.0,
+      "type_hint_ratio": 0.5,
+      "max_nesting_depth": 2.0,
+      "total_calls": 2
+    },
+    "scores": {
+      "centralized": 0.6401,
+      "distributed": 0.341,
+      "manual_first": 0.5121,
+      "conditional_threshold": 0.5929
+    },
+    "winner": "centralized",
+    "hypotheses": [
+      {
+        "statement": "EVALUATE to FROZEN exhibits a novel structural pattern: tightly coupled few-source origin (2.0 callers) / partially concentrated in system\\autonomy.py (50% dominance) / driven by uncategorized trigger logic.",
+        "confidence": 0.1,
+        "synthetic": true
+      },
+      {
+        "statement": "EVALUATE to FROZEN is controlled by a centralized authority \u2014 a single module mediates all transitions",
+        "confidence": 0.3299774814651972,
+        "synthetic": false
+      }
+    ]
+  },
+  "_unfreeze": {
+    "metrics": {
+      "unique_caller_files": 1.0,
+      "num_external_modules": 1.0,
+      "dominant_file_ratio": 1.0,
+      "dominant_file": "system\\autonomy.py",
+      "automatic_ratio": 0.5,
+      "manual_ratio": 0.0,
+      "reason_enum_count": 0,
+      "is_recursive": 0.0,
+      "loop_count": 0.0,
+      "try_block_ratio": 0.0,
+      "exception_types_count": 0.0,
+      "is_async": 0.0,
+      "await_count": 0.0,
+      "avg_args_count": 1.0,
+      "type_hint_ratio": 0.0,
+      "max_nesting_depth": 2.0,
+      "total_calls": 1
+    },
+    "scores": {
+      "centralized": 0.8045,
+      "distributed": 0.1491,
+      "manual_first": 0.5211,
+      "conditional_threshold": 0.6815
+    },
+    "winner": "centralized",
+    "hypotheses": [
+      {
+        "statement": "FROZEN to CAUTIOUS exhibits a novel structural pattern: monolithic single-source origin / strongly mediated by system\\autonomy.py (100% dominance) / driven by uncategorized trigger logic.",
+        "confidence": 0.1,
+        "synthetic": true
+      },
+      {
+        "statement": "FROZEN to CAUTIOUS is controlled by a centralized authority \u2014 a single module mediates all transitions",
+        "confidence": 0.3068996945753428,
+        "synthetic": false
+      }
+    ]
+  },
+  "messy_method": {
+    "metrics": {
+      "total_calls": 100,
+      "unique_caller_files": 10,
+      "has_central_router": true,
+      "dominant_file": "messy_manager.py",
+      "dominant_file_ratio": 0.8,
+      "manual_ratio": 0.9,
+      "automatic_ratio": 0.1,
+      "reason_enum_count": 1
+    },
+    "scores": {
+      "centralized": 0.3484,
+      "distributed": 0.3354,
+      "manual_first": 0.5776,
+      "conditional_threshold": 0.2574
+    },
+    "winner": "manual_first",
+    "hypotheses": [
+      {
+        "statement": "CONFUSING_TRANSITION exhibits a novel structural pattern: highly dispersed origin (10 callers) / strongly mediated by messy_manager.py (80% dominance) / driven primarily by manual intervention (90%).",
+        "confidence": 0.1,
+        "synthetic": true
+      },
+      {
+        "statement": "CONFUSING_TRANSITION is primarily initiated by manual or external authorization \u2014 automated triggers are secondary",
+        "confidence": 0.19354916977969297,
+        "synthetic": false
+      }
+    ]
+  }
+}

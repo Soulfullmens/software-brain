@@ -1,0 +1,18 @@
+﻿CONTINUED: callsites=['chunk_022', 'chunk_020'], gaps=['chunk_020', 'chunk_001', 'chunk_021'], reason=gaps_unresolved
+Recursion depth: 2
+Chunks explored: 9 / 23
+Discriminating probes: 0 ( 0 resolved)
+
+  [supported] (conf=0.80) Transition from EVALUATE to FROZEN is triggered by error/violation detection
+    supporting=9, contradicting=0, gaps=2, absence=0
+    MISSING: Conditions checked before transition
+    MISSING: Call site of _freeze() inside error handling
+  [supported] (conf=0.60) Transition from EVALUATE to FROZEN requires explicit authorization
+    supporting=9, contradicting=0, gaps=4, absence=0
+    MISSING: Authority check before transition
+    MISSING: Human approval mechanism for mode change
+    MISSING: Permission check before _freeze() call
+    MISSING: Authority module involved in mode changes
+  [supported] (conf=0.90) Transition from EVALUATE to FROZEN is an emergency safety mechanism
+    supporting=9, contradicting=0, gaps=1, absence=0
+    MISSING: Automatic _freeze() call without human input

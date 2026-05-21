@@ -1,0 +1,80 @@
+{
+    "name": "jarvis-dev-copilot",
+    "displayName": "Jarvis — Dev Co-Pilot",
+    "description": "Warns before your code fails. Learns from your personal error history.",
+    "version": "0.1.0",
+    "publisher": "jarvis-dev",
+    "engines": {
+        "vscode": "^1.85.0"
+    },
+    "categories": [
+        "Linters",
+        "Other"
+    ],
+    "keywords": [
+        "python",
+        "error",
+        "prediction",
+        "debugging",
+        "co-pilot"
+    ],
+    "activationEvents": [
+        "onLanguage:python"
+    ],
+    "main": "./out/extension.js",
+    "contributes": {
+        "commands": [
+            {
+                "command": "jarvis.checkFile",
+                "title": "Jarvis: Check Current File"
+            },
+            {
+                "command": "jarvis.showStatus",
+                "title": "Jarvis: Show Status"
+            },
+            {
+                "command": "jarvis.dismissWarning",
+                "title": "Jarvis: Dismiss Warning"
+            }
+        ],
+        "configuration": {
+            "title": "Jarvis Dev Co-Pilot",
+            "properties": {
+                "jarvis.pythonPath": {
+                    "type": "string",
+                    "default": "python",
+                    "description": "Path to Python interpreter"
+                },
+                "jarvis.enableOnSave": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Scan for risks on file save"
+                },
+                "jarvis.enableTerminalCapture": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Auto-capture errors from terminal output"
+                }
+            }
+        }
+    },
+    "scripts": {
+        "vscode:prepublish": "npm run compile",
+        "compile": "tsc -p ./",
+        "watch": "tsc -watch -p ./",
+        "package": "npx vsce package"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.85.0",
+        "@types/node": "^20.0.0",
+        "typescript": "^5.3.0",
+        "@vscode/vsce": "^2.22.0"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/jarvis-dev/jarvis-copilot"
+    },
+    "license": "MIT",
+    "badges": [],
+    "preview": true
+}

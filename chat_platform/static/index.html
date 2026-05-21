@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>NOMAD SecureChat</title>
+  <meta name="description" content="End-to-end encrypted offline-first chat. Powered by your personal AI." />
+  <meta name="theme-color" content="#0a0a1a" />
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="theme-default">
+  <canvas id="bgCanvas"></canvas>
+
+  <!-- AUTH SCREEN -->
+  <div id="authScreen" class="screen active">
+    <div class="auth-container">
+      <div class="logo-glow">
+        <div class="logo-icon">🔐</div>
+        <h1 class="logo-text">NOMAD<span>Chat</span></h1>
+        <p class="logo-sub">End-to-End Encrypted · Offline-First · AI-Powered</p>
+      </div>
+      <div class="auth-card glass">
+        <div class="auth-tabs">
+          <button class="tab-btn active" onclick="switchTab('login')">Sign In</button>
+          <button class="tab-btn" onclick="switchTab('register')">Create Account</button>
+        </div>
+        
+        <!-- LOGIN -->
+        <div id="loginForm" class="auth-form">
+          <div class="field-group">
+            <label>Username</label>
+            <input type="text" id="loginUser" placeholder="@username" autocomplete="username" />
+          </div>
+          <div class="field-group">
+            <label>Password</label>
+            <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <button class="btn-primary" onclick="doLogin()">Sign In</button>
+        </div>
+        
+        <!-- REGISTER -->
+        <div id="registerForm" class="auth-form hidden">
+          <div class="field-group">
+            <label>Display Name</label>
+            <input type="text" id="regName" placeholder="Your Name" />
+          </div>
+          <div class="field-group">
+            <label>Username</label>
+            <input type="text" id="regUser" placeholder="@username (no spaces)" />
+          </div>
+          <div class="field-group">
+            <label>Password</label>
+            <input type="password" id="regPass" placeholder="6+ characters" />
+          </div>
+          <div class="field-group">
+            <label>Language</label>
+            <select id="regLang">
+              <option value="en">🇬🇧 English</option>
+              <option value="es">🇪🇸 Spanish</option>
+              <option value="fr">🇫🇷 French</option>
+              <option value="de">🇩🇪 German</option>
+              <option value="hi">🇮🇳 Hindi</option>
+              <option value="ar">🇸🇦 Arabic</option>
+              <option value="zh">🇨🇳 Mandarin</option>
+              <option value="ja">🇯🇵 Japanese</option>
+              <option value="ko">🇰🇷 Korean</option>
+              <option value="tl">🇵🇭 Filipino/Tagalog</option>
+              <option value="pt">🇧🇷 Portuguese</option>
+              <option value="ru">🇷🇺 Russian</option>
+              <option value="ur">🇵🇰 Urdu</option>
+              <option value="id">🇮🇩 Indonesian</option>
+            </select>
+          </div>
+          <button class="btn-primary" onclick="doRegister()">Create Account</button>
+        </div>
+        
+        <p id="authError" class="error-msg hidden"></p>
+      </div>
+      <p class="auth-footer">🛡️ Your messages are encrypted. Even we can't read them.</p>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="appScreen" class="screen hidden">
+    <!-- SIDEBAR -->
+    <aside class="sidebar glass">
+      <div class="sidebar-header">
+        <div class="user-avatar small" id="myAvatar">
+          <span id="myAvatarInitials"></span>
+          <div class="status-ring"></div>
+        </div>
+        <div class="user-info-small">
+          <span id="myDisplayName" class="display-name"></span>
+          <span id="myUsername" class="username"></span>
+          <span id="myStatusText" class="status-text">Available</span>
+        </div>
+        <div class="header-actions">
+          <button class="icon-btn" onclick="openSearch()" title="Explore & Search">🌍</button>
+          <button class="icon-btn" onclick="openSettings()" title="Settings">⚙️</button>
+        </div>
+      </div>
+
+      <div class="sidebar-tabs">
+        <button class="sidebar-tab active" onclick="switchSidebarTab('chats')">Chats</button>
+        <button class="sidebar-tab" onclick="switchSidebarTab('friends')">Friends</button>
+        <button class="sidebar-tab" onclick="switchSidebarTab('feed')">Feed</button>
+      </div>
+      
+      <div class="search-bar hidden" id="searchBar">
+        <input type="text" id="searchInput" placeholder="Search people globally..." oninput="searchUsers(this.value)" />
+        <div class="explore-hint">Discover public profiles</div>
+        <div id="searchResults" class="search-results"></div>
+      </div>
+      
+      <!-- Chats List -->
+      <div class="conversations-list" id="conversationsList">
+        <div class="empty-state">
+          <div class="empty-icon">💬</div>
+          <p>No conversations yet</p>
+          <small>Search for people to start chatting</small>
+        </div>
+      </div>
+
+      <!-- Friends List -->
+      <div class="conversations-list hidden" id="friendsList">
+        <div class="empty-state">
+          <div class="empty-icon">👥</div>
+          <p>No friends yet</p>
+          <small>Find people in the Explore tab</small>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CHAT PANEL -->
+    <main class="chat-panel" id="chatPanel">
+      <div class="chat-welcome" id="chatWelcome">
+        <div class="welcome-particles">
+          <div class="welcome-icon">🔐</div>
+          <h2>NOMAD SecureChat</h2>
+          <p>Select a conversation or explore to find friends</p>
+          <div class="feature-pills">
+            <span class="pill">🔒 E2E Encrypted</span>
+            <span class="pill">🛰️ Satellite Mesh Ready</span>
+            <span class="pill">🤖 Agent Integrations</span>
+            <span class="pill">👥 Public Global Feed</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Instagram-Style Global Feed Panel -->
+      <div class="feed-area hidden" id="feedArea">
+        <!-- Stories Bar (top) -->
+        <div class="ig-stories-bar" id="storiesBar">
+          <div class="ig-story-item ig-story-add" onclick="document.getElementById('postMediaInput').click()">
+            <div class="ig-story-ring add">
+              <div class="ig-story-avatar" style="background:var(--accent); font-size:24px;">+</div>
+            </div>
+            <span>Your Story</span>
+          </div>
+          <!-- Stories populated dynamically -->
+        </div>
+        
+        <!-- Create Post Composer (Instagram-style) -->
+        <div class="ig-create-post glass">
+          <div class="ig-composer-header">
+            <div class="user-avatar small" id="feedAvatar" style="cursor:default;"><span id="feedAvatarInit"></span></div>
+            <textarea id="postContent" placeholder="What's on your mind?" rows="1" oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px';"></textarea>
+          </div>
+          <img id="postMediaPreview" class="ig-post-media-preview" style="display:none;" />
+          <video id="postVideoPreview" class="ig-post-media-preview" style="display:none;" controls></video>
+          <div class="ig-composer-actions">
+            <div class="ig-composer-tools">
+              <button class="ig-tool-btn" onclick="document.getElementById('postMediaInput').click()" title="Photo">📷 Photo</button>
+              <button class="ig-tool-btn" onclick="document.getElementById('postVideoInput').click()" title="Video">🎬 Video</button>
+              <button class="ig-tool-btn" title="Feeling">😊 Feeling</button>
+            </div>
+            <input type="file" id="postMediaInput" accept="image/*" style="display:none" onchange="previewPostMedia(this)" />
+            <input type="file" id="postVideoInput" accept="video/*" style="display:none" onchange="previewPostVideo(this)" />
+            <button class="ig-post-btn" onclick="submitPost()">Share</button>
+          </div>
+        </div>
+        
+        <!-- Feed Posts List -->
+        <div id="feedList" class="ig-feed-list">
+          <div class="messages-loader">Loading feed...</div>
+        </div>
+      </div>
+      
+      <div class="chat-room hidden" id="chatRoom">
+        <!-- Chat Header -->
+        <div class="chat-header glass">
+          <button class="icon-btn back-btn" onclick="closeChat()">←</button>
+          <div class="chat-user-info" onclick="startVideoCall()">
+            <div class="user-avatar medium" id="chatAvatar">
+              <span id="chatAvatarInitials"></span>
+              <div class="status-ring" id="chatStatusRing"></div>
+            </div>
+            <div>
+              <div id="chatDisplayName" class="display-name"></div>
+              <div id="chatStatus" class="status-text">Tap to call</div>
+            </div>
+          </div>
+          <div class="chat-actions">
+            <button class="icon-btn call-btn" id="addFriendBtn" onclick="addCurrentPeerFriend()" title="Add Friend">👤+</button>
+            <button class="icon-btn call-btn" onclick="startVoiceCall()" title="Voice Call">📞</button>
+            <button class="icon-btn call-btn" onclick="startVideoCall()" title="Video Call">📹</button>
+            <button class="icon-btn" onclick="openChatSettings()" title="Chat Settings">⋮</button>
+          </div>
+        </div>
+        
+        <!-- Messages -->
+        <div class="messages-area" id="messagesArea">
+          <div class="messages-loader">Loading messages...</div>
+        </div>
+        
+        <!-- Typing -->
+        <div class="typing-indicator hidden" id="typingIndicator">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+          <span id="typingName"></span> is typing...
+        </div>
+        
+        <!-- Input -->
+        <div class="message-input-area glass">
+          <button class="icon-btn attach-btn" onclick="attachImage()" title="Share Image">📎</button>
+          <button class="icon-btn sticker-btn" onclick="toggleStickers()" title="Send Sticker">😊</button>
+          <input type="file" id="imageInput" accept="image/*" style="display:none" onchange="sendImageFile(this)" />
+          
+          <div class="sticker-drawer" id="stickerDrawer">
+             <div class="sticker-item" onclick="sendTextSticker('☕')"><span style="font-size:36px">☕</span></div>
+             <div class="sticker-item" onclick="sendTextSticker('🔥')"><span style="font-size:36px">🔥</span></div>
+             <div class="sticker-item" onclick="sendTextSticker('🚀')"><span style="font-size:36px">🚀</span></div>
+             <div class="sticker-item" onclick="sendTextSticker('💡')"><span style="font-size:36px">💡</span></div>
+             <div class="sticker-item" onclick="sendTextSticker('❤️')"><span style="font-size:36px">❤️</span></div>
+             <div class="sticker-item" onclick="sendTextSticker('👀')"><span style="font-size:36px">👀</span></div>
+             <div class="custom-sticker-upload" onclick="document.getElementById('customStickerInput').click()">+ Upload Image Sticker</div>
+             <input type="file" id="customStickerInput" accept="image/*" style="display:none" onchange="uploadCustomSticker(this)"/>
+          </div>
+          
+          <div class="input-wrapper">
+            <textarea id="messageInput" placeholder="Message..." rows="1"
+              onkeydown="handleKey(event)" oninput="handleTyping()" onfocus="markChatRead()" ></textarea>
+          </div>
+          <button class="send-btn" onclick="sendMessage()" id="sendBtn">
+            <span class="send-icon">↗</span>
+          </button>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settingsModal" class="modal-overlay hidden">
+    <div class="modal-card glass settings-scroll">
+      <div class="modal-header">
+        <h3>Settings & Profile</h3>
+        <button class="icon-btn" onclick="closeSettings()">✕</button>
+      </div>
+      <div class="modal-body">
+        
+        <div class="settings-section">
+          <h4>👤 Public Profile</h4>
+          <div class="profile-editor">
+            <div class="user-avatar large" id="settingsAvatar" style="cursor:pointer;" onclick="document.getElementById('avatarUpload').click()" title="Click to change avatar">
+              <span id="settingsAvatarInitials"></span>
+            </div>
+            <input type="file" id="avatarUpload" accept="image/*" style="display:none;" onchange="uploadAvatarImage(this)" />
+            <span id="settingsUsername" class="username" style="text-align:center; display:block; margin-top:4px;"></span>
+            <div class="field-group mt-2">
+              <label>Status Title</label>
+              <input type="text" id="profileStatusText" placeholder="e.g., Coding remotely" maxlength="30" />
+            </div>
+            <div class="field-group">
+              <label>Bio</label>
+              <textarea id="profileBio" rows="2" placeholder="Tell the world about yourself..." maxlength="150"></textarea>
+            </div>
+            <div class="setting-row">
+              <div>
+                <strong>Public Global Account</strong>
+                <p>Allow others to find you in Explore</p>
+              </div>
+              <label class="toggle">
+                <input type="checkbox" id="profileIsPublic" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <button class="btn-primary" onclick="saveProfile()" style="width:100%; padding:10px;">Save Profile</button>
+            <p id="profileSaveMsg" class="success-text hidden">Profile updated!</p>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>🎨 Chat Aesthetics</h4>
+          <div class="setting-row">
+            <span>Color Theme</span>
+            <select id="chatTheme" onchange="previewTheme(this.value)">
+              <option value="default">Midnight Purple (Default)</option>
+              <option value="cyberpunk">Cyberpunk Neon</option>
+              <option value="hacker">Hacker Green</option>
+              <option value="sunset">Sunset Orange</option>
+              <option value="ocean">Deep Ocean Blue</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>🔒 Privacy & Security</h4>
+          <div class="setting-row">
+            <div>
+              <strong>Private Mode</strong>
+              <p>Completely blind the agent from messages</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="privateModeToggle" onchange="togglePrivateMode(this.checked)" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>📡 NOMAD Hardware Connectivity</h4>
+          <div class="setting-row">
+            <div>
+              <strong>Satellite Mesh Relay</strong>
+              <p>Routing via Iridium/Starlink (Simulated)</p>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="satelliteRelayToggle" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <h4>🌍 Live Subtitle Language</h4>
+          <div class="setting-row">
+            <span>Subtitle Language</span>
+            <select id="subtitleLang" onchange="setSubtitleLang(this.value)">
+              <option value="en">English</option>
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="hi">Hindi</option>
+              <option value="tl">Tagalog (Philippines)</option>
+              <option value="ar">Arabic</option>
+              <option value="zh">Mandarin Chinese</option>
+              <option value="ja">Japanese</option>
+              <option value="ko">Korean</option>
+              <option value="ur">Urdu</option>
+              <option value="bn">Bengali</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn-danger" onclick="doLogout()">Sign Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIDEO CALL OVERLAY -->
+  <div id="callOverlay" class="call-overlay hidden">
+    <div class="call-bg glass"></div>
+    <video id="remoteVideo" autoplay playsinline class="remote-video"></video>
+    
+    <div class="local-video-wrapper">
+      <video id="localVideo" autoplay muted playsinline class="local-video"></video>
+      <div class="video-filters" id="videoFiltersList">
+        <button class="filter-btn active" onclick="setVideoFilter('none')">Normal</button>
+        <button class="filter-btn" onclick="setVideoFilter('sepia')">Warm</button>
+        <button class="filter-btn" onclick="setVideoFilter('cyber')">Cyber</button>
+        <button class="filter-btn" onclick="setVideoFilter('bw')">B&W</button>
+      </div>
+    </div>
+
+    <div class="subtitle-bar" id="subtitleBar"></div>
+    <div class="call-header">
+      <div class="call-user-info">
+        <div class="user-avatar medium" id="callAvatar"></div>
+        <div>
+          <div id="callDisplayName" class="display-name"></div>
+          <div id="callTimer" class="call-time">Calling...</div>
+        </div>
+      </div>
+      <div class="header-badges">
+        <div class="private-badge" id="privateBadge" style="display:none">🔒 Private Call</div>
+        <div class="hd-badge" id="hdBadge" style="display:none">HD WebRTC</div>
+      </div>
+    </div>
+    <div class="call-controls">
+      <button class="ctrl-btn" id="muteBtn" onclick="toggleMute()">🎙️</button>
+      <button class="ctrl-btn" id="videoBtn" onclick="toggleVideo()">📹</button>
+      <button class="ctrl-btn danger" onclick="endCall()">📵</button>
+      <button class="ctrl-btn" onclick="toggleSubtitles()" title="Subtitles">💬</button>
+      <button class="ctrl-btn" onclick="toggleVideoFilters()" title="Filters">✨</button>
+    </div>
+    <!-- Incoming call UI -->
+    <div id="incomingCall" class="incoming-call hidden glass">
+      <div class="user-avatar large" id="callerAvatar"></div>
+      <div id="callerName" class="display-name"></div>
+      <p>Incoming call...</p>
+      <div class="incoming-btns">
+        <button class="ctrl-btn" onclick="acceptCall()">✅</button>
+        <button class="ctrl-btn danger" onclick="rejectCall()">❌</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>

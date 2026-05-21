@@ -1,0 +1,54 @@
+"""
+Operational Integrity Logic
+Shared library for calculating deterministic content hashes.
+"""
+import os
+import hashlib
+from pathlib import Path
+
+def compute_merkle_root(directory: Path) -> str:
+    """
+    Compute a deterministic Merkle Root Hash for a directory.
+    Hash = Expected(path, size, content_hash)
+    
+    Walks directory in sorted order, skips hidden files and __pycache__.
+    """
+    if not directory.exists():
+        raise ValueError(f"Directory not found: {directory}")
+
+    file_hashes = []
+    
+    # Walk consistently (sorted)
+    for root, _, files in sorted(os.walk(directory)):
+        for name in sorted(files):
+            # Skip __pycache__ and hidden files
+            if name.startswith(".") or name == "__pycache__":
+                continue
+            if "__pycache__" in root:
+                continue
+                
+            path = Path(root) / name
+            try:
+                rel_path = path.relative_to(directory).as_posix()
+            except ValueError:
+                # Should not happen if path comes from walk(directory)
+                continue
+                
+            size = path.stat().st_size
+            
+            # Content Hash
+            try:
+                content = path.read_bytes()
+                content_hash = hashlib.sha256(content).hexdigest()
+                
+                # Leaf Hash: hash(rel_path + size + content_hash)
+                leaf_data = f"{rel_path}|{size}|{content_hash}".encode("utf-8")
+                leaf_hash = hashlib.sha256(leaf_data).hexdigest()
+                
+                file_hashes.append(leaf_hash)
+            except Exception as e:
+                print(f"Skipping {rel_path}: {e}")
+                
+    # Root Hash: hash(concat(sorted_leaf_hashes))
+    combined = "".join(sorted(file_hashes)).encode("utf-8")
+    return hashlib.sha256(combined).hexdigest()

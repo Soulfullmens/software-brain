@@ -1,0 +1,8 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\agency\__init__.py
+"""
+Agency Layer - Planning and Action Proposal
+
+This layer decides "what to do next" based on the BeliefState.
+It is stateless and deterministic (given inputs).
+"""

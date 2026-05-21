@@ -1,0 +1,327 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\memory\episodic.py
+"""
+Episodic Memory (EM)
+
+PURPOSE: "What happened"
+
+Examples:
+- "Owner corrected me about X"
+- "Prediction Y failed"
+- "We discussed architecture Z"
+
+PROPERTIES:
+- Time-based
+- Importance-weighted
+- Slowly decays (λ = 0.01 per day)
+- Can be merged or summarized
+
+RULES:
+- Memory stores experience, not truth
+- Memory can be wrong
+- Memory decays
+- Memory never overrides the World Model
+"""
+
+from __future__ import annotations
+
+import math
+import sqlite3
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Optional
+
+
+# Default decay rate for episodic memory (per day)
+EPISODIC_DECAY_RATE = 0.01
+
+# Confidence threshold below which memory is "inactive"
+INACTIVE_THRESHOLD = 0.2
+
+
+@dataclass
+class Episode:
+    """
+    A single episodic memory entry.
+    
+    Represents something that happened - an experience, event,
+    interaction, or observation.
+    """
+    id: str
+    content: str
+    importance: float           # 0.0 - 1.0, how significant was this
+    confidence: float           # 0.0 - 1.0, how certain are we this happened
+    decay_rate: float           # λ per day
+    created_at: datetime
+    last_reinforced: datetime
+    last_accessed: datetime
+    contradiction_count: int    # Times this was contradicted
+    source: str                 # Where this memory came from
+    
+    @classmethod
+    def create(
+        cls,
+        content: str,
+        importance: float,
+        source: str,
+        confidence: float = 0.9,
+        decay_rate: float = EPISODIC_DECAY_RATE,
+    ) -> Episode:
+        """Create a new episode."""
+        now = datetime.now()
+        return cls(
+            id=str(uuid.uuid4()),
+            content=content,
+            importance=importance,
+            confidence=confidence,
+            decay_rate=decay_rate,
+            created_at=now,
+            last_reinforced=now,
+            last_accessed=now,
+            contradiction_count=0,
+            source=source,
+        )
+    
+    def is_active(self) -> bool:
+        """Check if this memory is still active (above threshold)."""
+        return self.confidence >= INACTIVE_THRESHOLD
+    
+    def decay(self, current_time: Optional[datetime] = None) -> float:
+        """
+        Apply decay based on time since last reinforcement.
+        
+        Uses exponential decay: confidence(t) = confidence₀ × e^(−λΔt)
+        
+        Returns the new confidence value.
+        """
+        current_time = current_time or datetime.now()
+        # Decay from whichever is more recent: reinforcement or access
+        reference_time = max(self.last_reinforced, self.last_accessed)
+        delta_days = (current_time - reference_time).total_seconds() / 86400
+        self.confidence = self.confidence * math.exp(-self.decay_rate * delta_days)
+        return self.confidence
+    
+    def reinforce(self, strength: float = 0.2) -> float:
+        """
+        Reinforce this memory, increasing confidence.
+        
+        Uses: new_confidence = old + α(1 − old)
+        This prevents runaway certainty (never reaches 1.0).
+        
+        Args:
+            strength: α value, typically 0.1-0.3
+        
+        Returns the new confidence value.
+        """
+        self.confidence = self.confidence + strength * (1.0 - self.confidence)
+        self.last_reinforced = datetime.now()
+        return self.confidence
+    
+    def contradict(self, penalty: float = 0.15) -> float:
+        """
+        Mark this memory as contradicted.
+        
+        Reduces confidence and increments contradiction count.
+        """
+        self.confidence = max(0.0, self.confidence - penalty)
+        self.contradiction_count += 1
+        return self.confidence
+    
+    def access(self) -> None:
+        """Mark this memory as accessed (for tracking)."""
+        self.last_accessed = datetime.now()
+
+
+class EpisodicMemory:
+    """
+    Persistent storage for episodic memories.
+    
+    Uses SQLite for persistence.
+    Memories decay over time and can become inactive.
+    """
+    
+    def __init__(self, db_path: Path):
+        self.db_path = db_path
+        self._init_db()
+    
+    def _init_db(self) -> None:
+        """Initialize the database schema."""
+        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS episodic_memory (
+                    id TEXT PRIMARY KEY,
+                    content TEXT NOT NULL,
+                    importance REAL NOT NULL,
+                    confidence REAL NOT NULL,
+                    decay_rate REAL NOT NULL,
+                    created_at TEXT NOT NULL,
+                    last_reinforced TEXT NOT NULL,
+                    last_accessed TEXT NOT NULL,
+                    contradiction_count INTEGER NOT NULL,
+                    source TEXT NOT NULL
+                )
+            """)
+            
+            # Indexes for efficient queries
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_em_confidence 
+                ON episodic_memory(confidence)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_em_importance 
+                ON episodic_memory(importance)
+            """)
+            conn.execute("""
+                CREATE INDEX IF NOT EXISTS idx_em_last_reinforced 
+                ON episodic_memory(last_reinforced)
+            """)
+            conn.commit()
+    
+    def store(self, episode: Episode) -> None:
+        """Store an episode to the database."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                INSERT OR REPLACE INTO episodic_memory 
+                (id, content, importance, confidence, decay_rate,
+                 created_at, last_reinforced, last_accessed, 
+                 contradiction_count, source)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                episode.id,
+                episode.content,
+                episode.importance,
+                episode.confidence,
+                episode.decay_rate,
+                episode.created_at.isoformat(),
+                episode.last_reinforced.isoformat(),
+                episode.last_accessed.isoformat(),
+                episode.contradiction_count,
+                episode.source,
+            ))
+            conn.commit()
+    
+    def get(self, episode_id: str) -> Optional[Episode]:
+        """Retrieve an episode by ID. Updates last_accessed."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT * FROM episodic_memory WHERE id = ?",
+                (episode_id,)
+            )
+            row = cursor.fetchone()
+            if row:
+                episode = self._row_to_episode(row)
+                episode.access()
+                self.store(episode)
+                return episode
+        return None
+    
+    def get_active(self, limit: int = 100) -> list[Episode]:
+        """Get active memories (confidence >= threshold). Updates last_accessed."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                SELECT * FROM episodic_memory 
+                WHERE confidence >= ?
+                ORDER BY importance DESC, last_reinforced DESC
+                LIMIT ?
+            """, (INACTIVE_THRESHOLD, limit))
+            episodes = [self._row_to_episode(row) for row in cursor.fetchall()]
+        # Update access time for all retrieved episodes
+        for episode in episodes:
+            episode.access()
+            self.store(episode)
+        return episodes
+    
+    def get_recent(self, hours: int = 24, limit: int = 50) -> list[Episode]:
+        """Get recent episodes within the time window. Updates last_accessed."""
+        cutoff = (datetime.now() - timedelta(hours=hours)).isoformat()
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("""
+                SELECT * FROM episodic_memory 
+                WHERE created_at >= ?
+                ORDER BY created_at DESC
+                LIMIT ?
+            """, (cutoff, limit))
+            episodes = [self._row_to_episode(row) for row in cursor.fetchall()]
+        # Update access time for all retrieved episodes
+        for episode in episodes:
+            episode.access()
+            self.store(episode)
+        return episodes
+    
+    def update(self, episode: Episode) -> None:
+        """Update an existing episode."""
+        self.store(episode)  # INSERT OR REPLACE handles this
+    
+    def reinforce(self, episode_id: str, strength: float = 0.2) -> Optional[Episode]:
+        """Reinforce a memory by ID."""
+        episode = self.get(episode_id)
+        if episode:
+            episode.reinforce(strength)
+            self.store(episode)
+        return episode
+    
+    def contradict(self, episode_id: str, penalty: float = 0.15) -> Optional[Episode]:
+        """Mark a memory as contradicted."""
+        episode = self.get(episode_id)
+        if episode:
+            episode.contradict(penalty)
+            self.store(episode)
+        return episode
+    
+    def decay_all(self, current_time: Optional[datetime] = None) -> int:
+        """
+        Apply decay to ALL memories.
+        
+        This should be called periodically (e.g., once per session start).
+        
+        Returns the number of memories that became inactive.
+        """
+        current_time = current_time or datetime.now()
+        became_inactive = 0
+        
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT * FROM episodic_memory")
+            episodes = [self._row_to_episode(row) for row in cursor.fetchall()]
+        
+        for episode in episodes:
+            was_active = episode.is_active()
+            episode.decay(current_time)
+            if was_active and not episode.is_active():
+                became_inactive += 1
+            self.store(episode)
+        
+        return became_inactive
+    
+    def count_active(self) -> int:
+        """Count active memories."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute(
+                "SELECT COUNT(*) FROM episodic_memory WHERE confidence >= ?",
+                (INACTIVE_THRESHOLD,)
+            )
+            return cursor.fetchone()[0]
+    
+    def count_total(self) -> int:
+        """Count total memories (including inactive)."""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.execute("SELECT COUNT(*) FROM episodic_memory")
+            return cursor.fetchone()[0]
+    
+    def _row_to_episode(self, row: tuple) -> Episode:
+        """Convert a database row to an Episode object."""
+        return Episode(
+            id=row[0],
+            content=row[1],
+            importance=row[2],
+            confidence=row[3],
+            decay_rate=row[4],
+            created_at=datetime.fromisoformat(row[5]),
+            last_reinforced=datetime.fromisoformat(row[6]),
+            last_accessed=datetime.fromisoformat(row[7]),
+            contradiction_count=row[8],
+            source=row[9],
+        )

@@ -1,0 +1,8 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\learning\__init__.py
+"""
+Layer 4: Learning Engine
+
+This package handles the adaptation of belief formation policies.
+It consumes signals (failures, surprises) and updates policies (trust, coefficients).
+"""

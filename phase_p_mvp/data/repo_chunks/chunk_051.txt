@@ -1,0 +1,20 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\perception\input_event.py
+"""
+Input Event - Raw Stimulus Container
+
+Represents a raw signal from outside the agent.
+This is the boundary between "User/World" and "Agent".
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from typing import Any, Dict
+
+
+@dataclass
+class InputEvent:
+    source: str            # "owner", "api", "system"
+    modality: str          # "text", "vision" (future)
+    payload: Dict[str, Any] # Structured data (pre-parsed)
+    timestamp: datetime = field(default_factory=datetime.now)

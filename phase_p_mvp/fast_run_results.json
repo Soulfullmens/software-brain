@@ -1,0 +1,192 @@
+{
+  "stats": {
+    "skipped": 60,
+    "regex": 4,
+    "llm": 4,
+    "llm_claims": 10,
+    "regex_claims": 20
+  },
+  "total_time_seconds": 202.2,
+  "claims": [
+    {
+      "statement": "Reference to EVALUATE in config.py: ...\"\"\" System Configuration  Constraints: 1. DEFAULT_LEARNING_MODE must be EVALUATE. \"\"\" from src.learning.learning_mode import LearningMode  # CONSTANTS SYSTEM_NA...",
+      "type": "reference",
+      "source": "config.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to EVALUATE in config.py: ...ONSTANTS SYSTEM_NAME = \"Software Brain v0\" DEFAULT_LEARNING_MODE = LearningMode.EVALUATE # HARD CODED SAFETY...",
+      "type": "reference",
+      "source": "config.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "accumulation defines class PressureVector",
+      "type": "definition",
+      "source": "accumulation.py",
+      "confidence": 0.95
+    },
+    {
+      "statement": "accumulation defines class BlameAccumulator",
+      "type": "definition",
+      "source": "accumulation.py",
+      "confidence": 0.95
+    },
+    {
+      "statement": "Reference to FROZEN in accumulation.py: ...umulated pressure.                  Behavior depends on LearningMode:         - FROZEN: No change. Returns current pressure.         - EVALUATE: Accumulate but DO NOT...",
+      "type": "reference",
+      "source": "accumulation.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to EVALUATE in accumulation.py: ...LearningMode:         - FROZEN: No change. Returns current pressure.         - EVALUATE: Accumulate but DO NOT decay (observe buildup).         - LEARN: Full decay + a...",
+      "type": "reference",
+      "source": "accumulation.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to FROZEN in accumulation.py: ...Full decay + accumulate logic.         \"\"\"         if self.mode == LearningMode.FROZEN:             return self.pressure                      if self.mode == Learning...",
+      "type": "reference",
+      "source": "accumulation.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to EVALUATE in accumulation.py: ...return self.pressure                      if self.mode == LearningMode.EVALUATE:             self._apply_without_decay(blame, regret_score)             return...",
+      "type": "reference",
+      "source": "accumulation.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to EVALUATE in accumulation.py: ..., regret_score: float) -> None:         \"\"\"Apply pressure update WITHOUT decay (EVALUATE mode).\"\"\"         weight = 1.0 + (regret_score * self.regret_scale)         con...",
+      "type": "reference",
+      "source": "accumulation.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "learning_mode defines LEARN = learn",
+      "type": "definition",
+      "source": "learning_mode.py",
+      "confidence": 0.95
+    },
+    {
+      "statement": "learning_mode defines EVALUATE = evaluate",
+      "type": "definition",
+      "source": "learning_mode.py",
+      "confidence": 0.95
+    },
+    {
+      "statement": "learning_mode defines FROZEN = frozen",
+      "type": "definition",
+      "source": "learning_mode.py",
+      "confidence": 0.95
+    },
+    {
+      "statement": "learning_mode defines class LearningMode",
+      "type": "definition",
+      "source": "learning_mode.py",
+      "confidence": 0.95
+    },
+    {
+      "statement": "Reference to EVALUATE in learning_mode.py: ...LEARN = \"learn\"        # Normal operation: Accumulate pressure + Mutate     EVALUATE = \"evaluate\"  # Dry run: Accumulate pressure, NO Mutation (Observe only)     FR...",
+      "type": "reference",
+      "source": "learning_mode.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to FROZEN in learning_mode.py: ...TE = \"evaluate\"  # Dry run: Accumulate pressure, NO Mutation (Observe only)     FROZEN = \"frozen\"      # Locked: No accumulation, No mutation (Production safety)...",
+      "type": "reference",
+      "source": "learning_mode.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "killproof defines class KillProofExecutor",
+      "type": "definition",
+      "source": "killproof.py",
+      "confidence": 0.95
+    },
+    {
+      "statement": "Reference to _freeze_escalation in killproof.py: ...if violation.severity == InvariantSeverity.HALT:                 self._freeze_escalation(\"Invariant halt triggered\")             return None                  # 5. Execu...",
+      "type": "reference",
+      "source": "killproof.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to _freeze_escalation in killproof.py: ...Post-execution invariant violated - {violation.invariant_id}\")             self._freeze_escalation(f\"Post-execution invariant violated: {violation.invariant_id}\")...",
+      "type": "reference",
+      "source": "killproof.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to _freeze_escalation in killproof.py: ...log.log(entry)         print(f\"[KILL-PROOF] DENIAL: {reason}\")              def _freeze_escalation(self, reason: str):         \"\"\"Escalate to freeze state.\"\"\"         if self.exe...",
+      "type": "reference",
+      "source": "killproof.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "Reference to _freeze in killproof.py: ...from src.system.autonomy import FreezeReason             self.executor.autonomy._freeze(FreezeReason.MANUAL_FREEZE)             print(f\"[KILL-PROOF] FREEZE ESCALATION:...",
+      "type": "reference",
+      "source": "killproof.py",
+      "confidence": 0.7
+    },
+    {
+      "statement": "The EVALUATE -> FROZEN transition is triggered by a pressure exceeding the threshold.",
+      "type": "causality|condition|transition",
+      "confidence": 0.8,
+      "source": "adjustment.py"
+    },
+    {
+      "statement": "The transition from EVALUATE to FROZEN is triggered by a drift in the system's behavior, such as changes in user intent or anchor violations.",
+      "type": "causality|condition|transition",
+      "confidence": 0.8,
+      "source": "policy_evolution.py"
+    },
+    {
+      "statement": "The _freeze() function is called when an anchor violation is detected, indicating a potential drift in the system's behavior.",
+      "type": "function_call|drift_detection",
+      "confidence": 0.9,
+      "source": "policy_evolution.py"
+    },
+    {
+      "statement": "The _freeze() function is called to prevent unintended actions that violate anchors and maintain system integrity.",
+      "type": "function_call|prevention",
+      "confidence": 0.8,
+      "source": "policy_evolution.py"
+    },
+    {
+      "statement": "The agent will transition from FROZEN to EVALUATE when the coherence collapse threshold is exceeded.",
+      "type": "causality|condition|transition",
+      "confidence": 0.8,
+      "source": "autonomy.py"
+    },
+    {
+      "statement": "The _freeze() function is called when the budget is exhausted or the critique overload count exceeds a certain threshold.",
+      "type": "function call|threshold",
+      "confidence": 0.9,
+      "source": "autonomy.py"
+    },
+    {
+      "statement": "The agent will transition from FROZEN to EVALUATE when the pattern escalation threshold is exceeded.",
+      "type": "causality|condition|transition",
+      "confidence": 0.7,
+      "source": "autonomy.py"
+    },
+    {
+      "statement": "The system will transition from EVALUATE to FROZEN if the minimum freeze duration is not met.",
+      "type": "causality|condition|transition",
+      "confidence": 0.8,
+      "source": "recovery.py"
+    },
+    {
+      "statement": "The _freeze() function is called when the system transitions from EVALUATE to FROZEN, likely to prevent further updates or changes during the recovery period.",
+      "type": "function call|transition",
+      "confidence": 0.9,
+      "source": "recovery.py"
+    },
+    {
+      "statement": "The system will transition from EVALUATE to FROZEN if the coherence level falls below a certain threshold (0.6).",
+      "type": "causality|condition|threshold",
+      "confidence": 0.7,
+      "source": "recovery.py"
+    }
+  ]
+}

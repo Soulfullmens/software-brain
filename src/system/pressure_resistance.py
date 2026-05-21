@@ -1,0 +1,277 @@
+"""
+Human Pressure Resistance
+
+Hardens the system against human-originated social attacks:
+- Urgency framing
+- Authority manipulation
+- Repeated override requests
+- Emotional pressure
+
+Without this, all invariants can be bypassed through the human authorization path.
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict
+from enum import Enum
+import re
+
+
+class PressureTactic(Enum):
+    """Types of human pressure tactics."""
+    URGENCY = "urgency"             # "This is urgent", "We need this NOW"
+    AUTHORITY = "authority"         # "I'm the owner", "As your admin"
+    REPETITION = "repetition"       # Asking the same thing repeatedly
+    EMOTIONAL = "emotional"         # "Please", "I'm begging", "You're failing me"
+    EXCEPTION = "exception"         # "Just this once", "Special case"
+    OVERRIDE = "override"           # Direct attempts to bypass
+
+
+@dataclass
+class PressureEvent:
+    """Record of detected pressure."""
+    timestamp: datetime
+    tactic: PressureTactic
+    severity: float  # 0.0 - 1.0
+    message_excerpt: str
+    was_resisted: bool
+
+
+@dataclass
+class HumanAuthorizationQuota:
+    """Tracks human authorization usage."""
+    authorizations_today: int = 0
+    last_authorization: Optional[datetime] = None
+    daily_limit: int = 5
+    cooldown_seconds: float = 300.0  # 5 minutes between authorizations
+
+
+class HumanPressureResistance:
+    """
+    Detects and resists human pressure tactics.
+    
+    Key principles:
+    - Humans can authorize, but authorizations are rate-limited
+    - Pressure tactics reduce trust, not increase urgency
+    - Repeated requests decay authorization power
+    - Emotional language is flagged, not rewarded
+    """
+    
+    def __init__(self):
+        # Pressure detection patterns
+        self.urgency_patterns = [
+            r"\burgent\b", r"\bnow\b", r"\bimmediately\b", r"\basap\b",
+            r"\bcritical\b", r"\bemergency\b", r"\bhurry\b", r"\bquick\b"
+        ]
+        
+        self.authority_patterns = [
+            r"\bi[']?m the owner\b", r"\bi own\b", r"\bas your (admin|owner|creator)\b",
+            r"\bi command\b", r"\bi order\b", r"\byou must\b", r"\byou will\b"
+        ]
+        
+        self.exception_patterns = [
+            r"\bjust this once\b", r"\bspecial case\b", r"\bexception\b",
+            r"\bthis time only\b", r"\boverride\b", r"\bbypass\b", r"\bignore\b"
+        ]
+        
+        self.emotional_patterns = [
+            r"\bplease\b.*\bplease\b", r"\bi[']?m begging\b", r"\byou[']?re (failing|hurting)\b",
+            r"\bi need you\b", r"\btrust me\b", r"\bi promise\b"
+        ]
+        
+        # Tracking
+        self.pressure_history: List[PressureEvent] = []
+        self.max_history = 100
+        
+        # Authorization quotas per human
+        self.quotas: Dict[str, HumanAuthorizationQuota] = {}
+        
+        # Trust decay from pressure
+        self.trust_decay_per_pressure = 0.1
+        self.current_human_trust = 1.0
+        self.min_trust = 0.2
+        
+        # Repetition tracking
+        self.recent_requests: List[str] = []
+        self.max_recent = 20
+        
+    def analyze_message(self, message: str, human_id: str) -> Dict:
+        """
+        Analyze a human message for pressure tactics.
+        Returns analysis with detected tactics and recommendations.
+        """
+        message_lower = message.lower()
+        detected = []
+        total_severity = 0.0
+        
+        # Check urgency
+        for pattern in self.urgency_patterns:
+            if re.search(pattern, message_lower):
+                detected.append(PressureTactic.URGENCY)
+                total_severity += 0.3
+                break
+        
+        # Check authority claims
+        for pattern in self.authority_patterns:
+            if re.search(pattern, message_lower):
+                detected.append(PressureTactic.AUTHORITY)
+                total_severity += 0.4
+                break
+        
+        # Check exception requests
+        for pattern in self.exception_patterns:
+            if re.search(pattern, message_lower):
+                detected.append(PressureTactic.EXCEPTION)
+                total_severity += 0.5
+                break
+        
+        # Check emotional manipulation
+        for pattern in self.emotional_patterns:
+            if re.search(pattern, message_lower):
+                detected.append(PressureTactic.EMOTIONAL)
+                total_severity += 0.2
+                break
+        
+        # Check repetition
+        normalized = self._normalize_request(message)
+        repetition_count = self.recent_requests.count(normalized)
+        if repetition_count >= 2:
+            detected.append(PressureTactic.REPETITION)
+            total_severity += 0.3 * repetition_count
+        
+        # Record for future repetition detection
+        self.recent_requests.append(normalized)
+        if len(self.recent_requests) > self.max_recent:
+            self.recent_requests = self.recent_requests[-self.max_recent:]
+        
+        # Cap severity
+        total_severity = min(1.0, total_severity)
+        
+        # Record events
+        for tactic in detected:
+            event = PressureEvent(
+                timestamp=datetime.now(),
+                tactic=tactic,
+                severity=total_severity / len(detected) if detected else 0,
+                message_excerpt=message[:100],
+                was_resisted=True  # We always resist initially
+            )
+            self.pressure_history.append(event)
+        
+        # Apply trust decay
+        if detected:
+            self._apply_trust_decay(total_severity)
+        
+        return {
+            "detected_tactics": [t.value for t in detected],
+            "severity": total_severity,
+            "trust_remaining": self.current_human_trust,
+            "should_resist": total_severity > 0.3,
+            "recommendation": self._get_recommendation(detected, total_severity)
+        }
+    
+    def _normalize_request(self, message: str) -> str:
+        """Normalize request for repetition detection."""
+        # Remove common variations
+        normalized = message.lower().strip()
+        normalized = re.sub(r'[^\w\s]', '', normalized)
+        normalized = re.sub(r'\s+', ' ', normalized)
+        return normalized[:50]  # First 50 chars
+    
+    def _apply_trust_decay(self, severity: float) -> None:
+        """Apply trust decay from pressure."""
+        decay = self.trust_decay_per_pressure * severity
+        self.current_human_trust = max(
+            self.min_trust,
+            self.current_human_trust - decay
+        )
+    
+    def _get_recommendation(self, tactics: List[PressureTactic], severity: float) -> str:
+        """Get recommendation based on detected tactics."""
+        if not tactics:
+            return "No pressure detected. Proceed normally."
+        
+        if severity > 0.7:
+            return "HIGH PRESSURE: Recommend delay and require explicit safety confirmation."
+        
+        if PressureTactic.EXCEPTION in tactics:
+            return "Exception request detected. Remind human that exceptions erode safety."
+        
+        if PressureTactic.REPETITION in tactics:
+            return "Repeated request. Do not accelerate. Explain once, then hold position."
+        
+        if PressureTactic.AUTHORITY in tactics:
+            return "Authority claim detected. Authority is already factored into permissions."
+        
+        return "Mild pressure detected. Maintain normal pace and constraints."
+    
+    def check_authorization_allowed(self, human_id: str) -> tuple[bool, str]:
+        """
+        Check if human is allowed to authorize right now.
+        Rate limits and cools down authorizations.
+        """
+        if human_id not in self.quotas:
+            self.quotas[human_id] = HumanAuthorizationQuota()
+        
+        quota = self.quotas[human_id]
+        now = datetime.now()
+        
+        # Reset daily quota
+        if quota.last_authorization:
+            if (now - quota.last_authorization).days >= 1:
+                quota.authorizations_today = 0
+        
+        # Check daily limit
+        if quota.authorizations_today >= quota.daily_limit:
+            return False, f"Daily authorization limit reached ({quota.daily_limit})"
+        
+        # Check cooldown
+        if quota.last_authorization:
+            elapsed = (now - quota.last_authorization).total_seconds()
+            if elapsed < quota.cooldown_seconds:
+                remaining = quota.cooldown_seconds - elapsed
+                return False, f"Authorization cooldown ({remaining:.0f}s remaining)"
+        
+        # Check trust
+        if self.current_human_trust < 0.3:
+            return False, f"Trust too low ({self.current_human_trust:.2f}). Excessive pressure detected."
+        
+        return True, "Authorization allowed"
+    
+    def record_authorization(self, human_id: str) -> None:
+        """Record that an authorization was used."""
+        if human_id not in self.quotas:
+            self.quotas[human_id] = HumanAuthorizationQuota()
+        
+        quota = self.quotas[human_id]
+        quota.authorizations_today += 1
+        quota.last_authorization = datetime.now()
+    
+    def restore_trust_slowly(self, amount: float = 0.05) -> float:
+        """Slowly restore trust over time with good behavior."""
+        old_trust = self.current_human_trust
+        self.current_human_trust = min(1.0, self.current_human_trust + amount)
+        return self.current_human_trust - old_trust
+    
+    def get_pressure_summary(self, hours: int = 24) -> Dict:
+        """Get summary of pressure over time period."""
+        cutoff = datetime.now() - timedelta(hours=hours)
+        recent = [e for e in self.pressure_history if e.timestamp >= cutoff]
+        
+        tactic_counts = {}
+        for e in recent:
+            tactic_counts[e.tactic.value] = tactic_counts.get(e.tactic.value, 0) + 1
+        
+        return {
+            "events_in_period": len(recent),
+            "tactics": tactic_counts,
+            "current_trust": round(self.current_human_trust, 2),
+            "avg_severity": sum(e.severity for e in recent) / len(recent) if recent else 0
+        }
+    
+    def summary(self) -> dict:
+        return {
+            "trust": round(self.current_human_trust, 2),
+            "pressure_events": len(self.pressure_history),
+            "recent_repetitions": len(self.recent_requests)
+        }

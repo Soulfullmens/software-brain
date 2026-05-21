@@ -1,0 +1,63 @@
+# ═══════════════════════════════════════════════════════════
+# AGENT DEPLOYMENT BLUEPRINT
+# ═══════════════════════════════════════════════════════════
+#
+# Defines the exact version, dependencies, and configuration
+# of the agent for reproducible and verifiable deployments.
+# ═══════════════════════════════════════════════════════════
+
+version: "2.1.0"
+name: "agentic-engine-pro-secure"
+description: "Advanced Agentic Engine with NemoClaw-level Security"
+
+# ── LIFECYCLE HOOKS ──
+lifecycle:
+  pre_flight:
+    - "python -c \"import sys; assert sys.version_info >= (3, 10), 'Python 3.10+ required'\""
+  post_deploy:
+    - "python test_trust_safety.py"
+
+# ── COMPONENTS ──
+components:
+  - name: "core_engine"
+    path: "src/agent/"
+    type: "python_package"
+    hash_required: false
+    
+  - name: "security_kernel"
+    path: "src/agent/security/"
+    type: "python_module"
+    
+  - name: "dashboard_api"
+    path: "src/business/"
+    type: "fastapi_app"
+
+# ── DEPENDENCIES ──
+dependencies:
+  system:
+    - "curl"
+    - "build-essential"
+  python:
+    - "fastapi"
+    - "uvicorn"
+    - "openai"
+    - "anthropic"
+    - "google-generativeai"
+
+# ── POLICIES ──
+policies:
+  network_egress: "config/network_policy.yaml"
+  confinement: "workspace_only"
+  
+# ── HEALTH CHECKS ──
+health_checks:
+  - name: "api_status"
+    type: "http"
+    endpoint: "http://localhost:8000/api/status"
+    timeout_ms: 2000
+    retries: 3
+    
+  - name: "disk_space"
+    type: "command"
+    command: "python -c \"import shutil; print(shutil.disk_usage('.').free > 100*1024*1024)\""
+    expected_output: "True"

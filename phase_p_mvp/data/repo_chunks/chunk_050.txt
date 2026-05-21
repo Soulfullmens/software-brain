@@ -1,0 +1,8 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\perception\__init__.py
+"""
+Layer 1: Perception
+
+This package handles the conversion of raw external signals into internal Claims.
+It is deterministic and does NOT perform complex reasoning or belief updates.
+"""

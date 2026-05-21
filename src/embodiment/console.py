@@ -1,0 +1,62 @@
+"""
+Console Body - The Sandbox
+
+A dummy body that logs actions to stdout.
+Used for testing and safe mode.
+"""
+
+from typing import Set, Optional
+from datetime import datetime
+from src.embodiment.base import Embodiment
+from src.agency.action import Action
+from src.perception.input_event import InputEvent
+
+
+class ConsoleBody(Embodiment):
+    """
+    A body that exists only in the console.
+    Can 'ask_clarification' and 'generate_prediction' (by acknowledging).
+    """
+    
+    def __init__(self, body_id: str = "console_v0"):
+        self._id = body_id
+        self._capabilities = {
+            "ask_clarification",
+            "resolve_contradiction", 
+            "gather_evidence",
+            "generate_prediction"
+        }
+        
+    @property
+    def embodiment_id(self) -> str:
+        return self._id
+        
+    @property
+    def capabilities(self) -> Set[str]:
+        return self._capabilities
+        
+    def can_execute(self, action: Action) -> bool:
+        return action.id in self._capabilities
+        
+    def execute(self, action: Action) -> Optional[InputEvent]:
+        """
+        Simulate execution by printing.
+        Returns a 'confirmation' input event.
+        """
+        print(f"\n[BODY:{self._id}] EXECUTING: {action.id}")
+        print(f"  > Target: {action.target}")
+        print(f"  > Rationale: {action.rationale}")
+        print(f"  > Description: {action.description}")
+        
+        # Simulate feedback
+        return InputEvent(
+            source=self._id,
+            modality="text",
+            timestamp=datetime.now(),
+            payload={
+                "type": "entity", # Feedback is usually evidence
+                "target_id": action.target or "system",
+                "content": f"Action {action.id} executed successfully.",
+                "confidence": 1.0
+            }
+        )

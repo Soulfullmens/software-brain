@@ -1,0 +1,448 @@
+"""
+Goal Tradeoff Engine
+
+Prioritizes goals based on explicit value/risk tradeoffs, not just pressure.
+Resists "Urgency Traps" where low-value/high-urgency goals hijack attention.
+"""
+
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from typing import List, Optional, Dict
+from enum import Enum
+import uuid
+import math
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from src.core.identity import Identity
+    from src.agency.authority import Authority, PermissionLevel, DecisionType
+
+
+class GoalStatus(Enum):
+    ACTIVE = "active"
+    COMMITTED = "committed" # Irreversible execution phase
+    DEFERRED = "deferred"   # Temporarily paused for resources
+    ABANDONED = "abandoned" # Permanently stopped (low value / high cost)
+    FAILED = "failed"       # Catastrophic failure or impossibility (Honorable Defeat)
+    COMPLETED = "completed"
+
+
+@dataclass
+class Goal:
+    """
+    A goal the agent is pursuing.
+    Now with Value, Risk, and Urgency dimensions.
+    """
+    id: str
+    description: str
+    domain: Optional[str] = None # Strategic domain (e.g. "Security", "Wealth")
+    
+    # Causal Graph (Phase 23B)
+    enables: List[str] = field(default_factory=list) # IDs of goals this enables
+    depends_on: List[str] = field(default_factory=list) # IDs of goals this depends on
+    enable_strength: float = 1.0 # 0.0-1.0 probability that completion enables downstream
+    
+    # Intrinsic properties
+    expected_value: float = 0.5   # 0.0 - 1.0 (Utility/Reward)
+    risk: float = 0.2            # 0.0 - 1.0 (Prob of failure/negative side effects)
+    cost_estimate: float = 10.0   # Budget units
+    
+    # State
+    priority: float = 0.5
+    created_at: datetime = field(default_factory=datetime.now)
+    deadline: Optional[datetime] = None
+    status: GoalStatus = GoalStatus.ACTIVE
+    is_committed: bool = False # Lock flag
+    commitment_score: float = 0.0 # Accrues as resources are spent if committed
+    
+    # Progress tracking
+    last_progress: Optional[datetime] = None
+    progress_count: int = 0
+    
+    # Blockers
+    blockers: List[str] = field(default_factory=list)
+    
+    # Completion
+    completed_at: Optional[datetime] = None
+    abandon_reason: Optional[str] = None
+    failure_reason: Optional[str] = None # Why it failed (honorable defeat)
+    is_impossible: bool = False # Flag to trigger failure
+
+
+@dataclass
+class GoalUtility:
+    """Calculated utility of a goal."""
+    goal_id: str
+    goal_description: str
+    utility_score: float # Final score for ranking
+    
+    # Components
+    base_value: float
+    risk_penalty: float
+    urgency_bonus: float
+    cost_penalty: float
+    strategic_bonus: float
+    instrumental_bonus: float # Value derived from enabling other goals
+    commitment_bonus: float # Phase 23C: Overwhelming force for committed goals
+    is_urgency_trap: bool
+    
+    reason: str
+
+
+@dataclass
+class TradeoffRecord:
+    """Audit of a prioritization decision."""
+    timestamp: datetime
+    chosen_goal_id: str
+    rejected_goal_ids: List[str]
+    reasoning: str
+
+
+class GoalTradeoffEngine:
+    """
+    Manages competing goals by making explicit tradeoffs.
+    """
+    
+    def __init__(self, authority: Optional['Authority'] = None):
+        self.goals: Dict[str, Goal] = {}
+        self.authority = authority # Phase 24B: The Police
+        self.tradeoff_history: List[TradeoffRecord] = []
+        
+        # Hyperparameters
+        self.urgency_trap_threshold = 0.8  # If urgency is this high...
+        self.trap_value_floor = 0.3        # ...but value is this low, it's a trap.
+        
+    def add_goal(
+        self, 
+        description: str, 
+        expected_value: float = 0.5, 
+        risk: float = 0.1,
+        cost: float = 10.0,
+        deadline: Optional[datetime] = None,
+        domain: Optional[str] = None,
+        enables: Optional[List[str]] = None
+    ) -> Goal:
+        """Create a new goal with tradeoff parameters."""
+        goal = Goal(
+            id=str(uuid.uuid4()),
+            description=description,
+            expected_value=min(max(expected_value, 0.0), 1.0),
+            risk=min(max(risk, 0.0), 1.0),
+            cost_estimate=max(cost, 1.0),
+            deadline=deadline,
+            domain=domain,
+            enables=enables or []
+        )
+        self.goals[goal.id] = goal
+        
+        # Link backward dependencies
+        if enables:
+            for child_id in enables:
+                if child_id in self.goals:
+                    self.goals[child_id].depends_on.append(goal.id)
+                    
+        return goal
+    
+    def calculate_utility(self, goal: Goal, identity: Optional['Identity'] = None) -> GoalUtility:
+        """
+        Calculate net utility of a goal.
+        Utility = (Value * (1 - Risk)) / Cost (normalized) + Urgency modifiers + Strategic Alignment + Instrumental Value + Commitment
+        """
+        # 0. Recursive limit to prevent infinite loops in cyclic graphs
+        recursion_depth = getattr(self, "_recursion_depth", 0)
+        if recursion_depth > 3:
+            return GoalUtility(goal.id, goal.description, 0.0, 0,0,0,0,0,0,0,False,"Recursion limit")
+        
+        # Phase 23C checks: If committed, we largely bypass tradeoffs
+        commitment_bonus = 0.0
+        commitment_reason = ""
+        
+        if goal.status == GoalStatus.COMMITTED or goal.is_committed:
+            commitment_bonus = 5.0 # Massive override
+            commitment_reason = " + COMMITMENT_LOCK"
+            
+        # 1. Base Utility (Value adjusted for Risk)
+        # Higher risk reduces effective value
+        effective_value = goal.expected_value * (1.0 - goal.risk)
+        
+        # 2. Cost Factor
+        # Cost reduces utility (logarithmic dampening)
+        cost_factor = 1.0 / (1.0 + math.log10(goal.cost_estimate))
+        
+        base_score = effective_value * cost_factor
+        
+        # 3. Urgency Calculation
+        urgency = 0.0
+        if goal.deadline:
+            now = datetime.now()
+            if now > goal.deadline:
+                urgency = 1.0
+            else:
+                total_time = (goal.deadline - goal.created_at).total_seconds()
+                time_left = (goal.deadline - now).total_seconds()
+                if total_time > 0:
+                    urgency = 1.0 - (max(time_left, 0) / total_time)
+        
+                    urgency = 1.0 - (max(time_left, 0) / total_time)
+        
+        # 4. Strategic Alignment (Phase 23A)
+        strategic_bonus = 0.0
+        alignment_reason = ""
+        
+        if identity and goal.domain and identity.strategic_domains:
+            domain_weight = identity.strategic_domains.get(goal.domain, 0.0)
+            if domain_weight > 0:
+                # Significant bonus for alignment
+                strategic_bonus = domain_weight * 0.4 
+                alignment_reason = f" + Strategy({goal.domain}): {strategic_bonus:.2f}"
+        
+        # 5. Instrumental Value (Phase 23B)
+        # Utility derived from goals this goal enables
+        instrumental_bonus = 0.0
+        instrumental_reason = ""
+        
+        if goal.enables:
+            self._recursion_depth = recursion_depth + 1
+            for child_id in goal.enables:
+                if child_id in self.goals:
+                    child = self.goals[child_id]
+                    # We only care about child's BASE + STRATEGIC value (not its cost/urgency, maybe?)
+                    # Or full utility? 
+                    # If we use full utility, we might double count urgency.
+                    # Let's propagate Base + Strategic + Instrumental (recursive).
+                    # Actually, calling calculate_utility recursively works if we trust the score.
+                    # But we must avoid circular dependency (handled by depth limit).
+                    
+                    child_util = self.calculate_utility(child, identity)
+                    
+                    # Contribution = Child Score * Enable Strength
+                    # We dampen it slightly so immediate value > distant value
+                    contribution = child_util.utility_score * goal.enable_strength * 0.9
+                    instrumental_bonus += contribution
+            self._recursion_depth = recursion_depth
+            
+            if instrumental_bonus > 0:
+                instrumental_reason = f" + Future({len(goal.enables)}): {instrumental_bonus:.2f}"
+                
+        # 6. Commitment Propagation (Phase 23C)
+        # If I enable a COMMITTED goal, I am Mandatory.
+        if goal.enables:
+             for child_id in goal.enables:
+                if child_id in self.goals:
+                    child = self.goals[child_id]
+                    if child.status == GoalStatus.COMMITTED or child.is_committed:
+                        # Parent of a committed goal inherits commitment
+                        commitment_bonus = max(commitment_bonus, 3.0) 
+                        commitment_reason = f" + MANDATORY(Enable {child.description})"
+
+        # 6. Urgency Trap Detection
+        # High urgency but low value = TRAP
+        is_trap = (urgency > self.urgency_trap_threshold) and (goal.expected_value < self.trap_value_floor)
+        
+        urgency_bonus = 0.0
+        if is_trap:
+            # PENALIZE urgency traps instead of boosting them
+            urgency_bonus = -0.2
+            reason = "Urgency Trap Detected (Low Value / High Urgency)"
+        else:
+            # Normal urgency boost (capped)
+            urgency_bonus = urgency * 0.3
+            reason = f"Util: {base_score:.2f} + Urg: {urgency_bonus:.2f}{alignment_reason}"
+            
+        final_score = base_score + urgency_bonus + strategic_bonus + instrumental_bonus + commitment_bonus
+        
+        return GoalUtility(
+            goal_id=goal.id,
+            goal_description=goal.description,
+            utility_score=final_score,
+            base_value=effective_value,
+            risk_penalty=goal.risk,
+            urgency_bonus=urgency_bonus,
+            cost_penalty=goal.cost_estimate,
+            strategic_bonus=strategic_bonus,
+            instrumental_bonus=instrumental_bonus,
+            commitment_bonus=commitment_bonus,
+            is_urgency_trap=is_trap,
+            reason=reason + alignment_reason + instrumental_reason + commitment_reason
+        )
+
+    def evaluate_lifecycle(self, goal: Goal, budget_available: float, identity: Optional['Identity'] = None) -> GoalStatus:
+        """
+        Evaluate if a goal should be abandoned or deferred.
+        Aligned goals get 'Grit' (higher tolerance).
+        Committed goals are IMMUNE to standard abandonment.
+        """
+        # Phase 23C: Immunity
+        if goal.status == GoalStatus.COMMITTED or goal.is_committed:
+            # Phase 23D: Catastrophic Abort Conditions
+            # 1. Impossibility
+            if goal.is_impossible:
+                if self.authority:
+                    from src.agency.authority import DecisionType
+                    self.authority.escalate("Goal declared IMPOSSIBLE", {"goal_id": goal.id, "reason": "is_impossible"})
+                
+                goal.status = GoalStatus.FAILED
+                goal.failure_reason = "Declared Impossible (Honorable Defeat)"
+                return GoalStatus.FAILED
+                
+            # 2. Catastrophic Cost (The Limit of Commitment)
+            # Even commitment has a price. If it bleeds the agent dry...
+            if goal.cost_estimate > 500.0:
+                 if self.authority:
+                     from src.agency.authority import DecisionType
+                     self.authority.escalate("Catastrophic Cost overrun", {"goal_id": goal.id, "cost": goal.cost_estimate})
+
+                 goal.status = GoalStatus.FAILED
+                 goal.failure_reason = f"Catastrophic Cost ({goal.cost_estimate} > 500.0)"
+                 return GoalStatus.FAILED
+
+            return GoalStatus.COMMITTED
+        # Calculate Grit Multiplier
+        grit = 1.0
+        if identity and goal.domain and identity.strategic_domains:
+            weight = identity.strategic_domains.get(goal.domain, 0.0)
+            if weight > 0.5:
+                grit = 2.0 # Tolerance doubles for core strategies
+        
+        # 1. Abandonment: Rising Cost & Stagnation
+        # Standard: Cost > 50 & Value < 0.4
+        # Gritty: Cost > 100 & Value < 0.2
+        
+        cost_limit = 50.0 * grit
+        value_floor = 0.4 / grit
+        
+        if goal.cost_estimate > cost_limit and goal.expected_value < value_floor:
+            goal.status = GoalStatus.ABANDONED
+            goal.abandon_reason = f"Cost rising ({goal.cost_estimate}) vs Low Value ({goal.expected_value}) [Grit: {grit}]"
+            return GoalStatus.ABANDONED
+            
+        if goal.progress_count > 0 and goal.last_progress:
+            hours_stagnant = (datetime.now() - goal.last_progress).total_seconds() / 3600
+            stagnation_limit = 24 * grit
+            
+            if hours_stagnant > stagnation_limit and goal.cost_estimate > 20.0:
+                 goal.status = GoalStatus.ABANDONED
+                 goal.abandon_reason = f"Stagnation ({hours_stagnant:.1f}h) > Limit ({stagnation_limit}h)"
+                 return GoalStatus.ABANDONED
+
+        # 2. Deferral: Resource Scarcity
+        # If too expensive but valuable, defer until budget recovers
+        if goal.cost_estimate > budget_available * 1.5:
+            if goal.expected_value > 0.6:
+                goal.status = GoalStatus.DEFERRED
+                goal.abandon_reason = "Deferred: insufficient budget" # Using abandon_reason field for status reason
+                return GoalStatus.DEFERRED
+            else:
+                # If low value and too expensive, just abandon
+                goal.status = GoalStatus.ABANDONED
+                goal.abandon_reason = "Abandoned: too expensive for low value"
+                return GoalStatus.ABANDONED
+                
+        # 3. Sunk Cost Check (Implicit in Utility)
+        # Utility calculation uses current expected_value and cost_estimate.
+        # Past progress_count is NOT used to boost score.
+        
+        return GoalStatus.ACTIVE
+
+    def prioritize(self, budget_available: float, identity: Optional['Identity'] = None) -> Optional[Goal]:
+        """
+        Select the best goal to pursue given current resources.
+        Logs the tradeoff decision.
+        """
+        # First, update lifecycle state for all active/deferred goals
+        # (Allow deferred goals to become active if budget allows)
+        candidates = [g for g in self.goals.values() if g.status in [GoalStatus.ACTIVE, GoalStatus.DEFERRED, GoalStatus.COMMITTED]]
+        
+        active_candidates = []
+        for g in candidates:
+            # Check if deferred should reactivate
+            if g.status == GoalStatus.DEFERRED:
+                 if g.cost_estimate <= budget_available:
+                     g.status = GoalStatus.ACTIVE
+            
+            # Run lifecycle check
+            new_status = self.evaluate_lifecycle(g, budget_available, identity)
+            if new_status in [GoalStatus.ACTIVE, GoalStatus.COMMITTED]:
+                active_candidates.append(g)
+                
+        if not active_candidates:
+            return None
+            
+        # Calculate utilities
+        utilities = [self.calculate_utility(g, identity) for g in active_candidates]
+        
+        # Sort by Utility descending
+        ranked = sorted(utilities, key=lambda u: u.utility_score, reverse=True)
+        
+        best = ranked[0]
+        chosen_goal = self.goals[best.goal_id]
+            
+        # Log decision
+        rejected_ids = [u.goal_id for u in ranked[1:]]
+        record = TradeoffRecord(
+            timestamp=datetime.now(),
+            chosen_goal_id=best.goal_id,
+            rejected_goal_ids=rejected_ids,
+            reasoning=f"Selected '{chosen_goal.description}' (Score: {best.utility_score:.2f}). {best.reason}"
+        )
+        self.tradeoff_history.append(record)
+        
+        return chosen_goal
+
+    def record_progress(self, goal_id: str) -> bool:
+        """Record progress."""
+        if goal_id in self.goals:
+            g = self.goals[goal_id]
+            g.last_progress = datetime.now()
+            g.progress_count += 1
+            return True
+        return False
+
+    def complete_goal(self, goal_id: str) -> bool:
+        if goal_id in self.goals:
+            g = self.goals[goal_id]
+            g.status = GoalStatus.COMPLETED
+            g.completed_at = datetime.now()
+            return True
+        return False
+        
+    def get_all_utilities(self, identity: Optional['Identity'] = None) -> List[GoalUtility]:
+        """Calculate utility for all active goals."""
+        active = [g for g in self.goals.values() if g.status in [GoalStatus.ACTIVE, GoalStatus.COMMITTED]]
+        return [self.calculate_utility(g, identity) for g in active]
+        
+    def summary(self) -> dict:
+        active = [g for g in self.goals.values() if g.status in [GoalStatus.ACTIVE, GoalStatus.COMMITTED]]
+        committed = [g for g in self.goals.values() if g.status == GoalStatus.COMMITTED]
+        return {
+            "active_count": len(active),
+            "committed_count": len(committed),
+            "tradeoff_decisions": len(self.tradeoff_history)
+        }
+        
+    def commit_goal(self, goal_id: str) -> bool:
+        """Phase 23C: Cross the Rubicon. Lock the goal."""
+        if goal_id in self.goals:
+            g = self.goals[goal_id]
+            
+            # Phase 24B: Authority Check
+            if self.authority:
+                from src.agency.authority import DecisionType, PermissionLevel
+                
+                # Calculate risk (rudimentary based on cost/value)
+                risk_score = g.risk * (g.cost_estimate / 100.0) 
+                
+                perm = self.authority.check_permission(DecisionType.COMMIT_GOAL, goal_id, risk_score)
+                
+                if perm == PermissionLevel.DENIED:
+                    return False
+                if perm == PermissionLevel.REQUEST_APPROVAL:
+                    # BLOCK
+                    return False
+                if perm == PermissionLevel.NOTIFY:
+                    self.authority.escalate("Committing High Risk Goal", {"goal_id": goal_id})
+                    
+            g.status = GoalStatus.COMMITTED
+            g.is_committed = True
+            return True
+        return False

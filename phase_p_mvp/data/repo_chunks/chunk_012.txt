@@ -1,0 +1,130 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\cognition\coherence.py
+"""
+Coherence Engine - Logicless State Quality Measurement
+
+This module calculates the 'health' of the belief state.
+It does NOT change the state. It only measures it.
+
+FORMULA (LOCKED):
+coherence = 1.0 - (w₁ * C) - (w₂ * F) - (w₃ * H)
+
+Where:
+- C = Σ(contradiction_urgency) / MAX_CONTRADICTIONS
+- F = Σ(failed_prediction_confidence) / MAX_PREDICTIONS
+- H = belief_entropy (uncertainty across entities & relations)
+- w₁=0.4, w₂=0.35, w₃=0.25
+
+Output clamped to [0.0, 1.0].
+"""
+
+import math
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Optional
+
+from .belief_state import BeliefState
+from .prediction import Prediction
+
+
+# Constants for normalization (Defining "Total Failure" capacity)
+MAX_CONTRADICTIONS = 10.0  # If we have 10 urgent contradictions, C=1.0
+MAX_PREDICTIONS = 10.0     # If we have 10 failed high-conf predictions, F=1.0
+
+# Weights (Locked)
+W_C = 0.40
+W_F = 0.35
+W_H = 0.25
+
+
+@dataclass
+class CoherenceReport:
+    """Detailed breakdown of the coherence score."""
+    score: float
+    c_term: float  # Contradiction penalty
+    f_term: float  # Failure penalty
+    h_term: float  # Entropy penalty
+    raw_c: float   # Unweighted C
+    raw_f: float   # Unweighted F
+    raw_h: float   # Unweighted H
+
+
+def binary_entropy(p: float) -> float:
+    """
+    Calculate binary entropy for a probability p.
+    H(p) = -p*log2(p) - (1-p)*log2(1-p)
+    Max is 1.0 at p=0.5. Min is 0.0 at p=0 or p=1.
+    """
+    if p <= 0.0 or p >= 1.0:
+        return 0.0
+    return -p * math.log2(p) - (1 - p) * math.log2(1 - p)
+
+
+def compute_coherence(state: BeliefState, now: Optional[datetime] = None) -> CoherenceReport:
+    """
+    Calculate the coherence score for a belief state.
+    
+    This function:
+    1. Calculates C (Contradiction load)
+    2. Calculates F (Prediction failures)
+    3. Calculates H (System entropy)
+    4. Combines them using locked weights
+    5. Clamps result to [0.0, 1.0]
+    
+    Does NOT modify the state.
+    """
+    # 1. Calculate C: Contradiction Load
+    # C = Sum(urgency) / MAX
+    total_urgency = sum(c.urgency for c in state.contradictions)
+    raw_c = min(1.0, total_urgency / MAX_CONTRADICTIONS)
+    
+    # 2. Calculate F: Prediction Failure Load
+    # F = Sum(confidence of FAILED predictions) / MAX
+    # We look for active predictions that assume failed outcomes
+    # NOTE: The Prediction object has 'outcome' field.
+    # We filter for outcome="denied".
+    
+    failed_predictions = [p for p in state.predictions if p.outcome == "denied"]
+    total_failure_impact = sum(p.probability for p in failed_predictions)
+    raw_f = min(1.0, total_failure_impact / MAX_PREDICTIONS)
+    
+    # 3. Calculate H: Belief Entropy
+    # H = Average binary entropy of all active Entities and Relations
+    # High entropy (p near 0.5) means "confused/uncertain"
+    # Low entropy (p near 0 or 1) means "certain"
+    
+    entropies = []
+    
+    # Entity entropy
+    for entity in state.entities.values():
+        entropies.append(binary_entropy(entity.confidence))
+        
+    # Relation entropy
+    for relation in state.relations:
+        entropies.append(binary_entropy(relation.confidence))
+        
+    if entropies:
+        raw_h = sum(entropies) / len(entropies)
+    else:
+        # If no beliefs, entropy is 0 (perfectly empty mind)
+        raw_h = 0.0
+        
+    # 4. Combine
+    penalty_c = W_C * raw_c
+    penalty_f = W_F * raw_f
+    penalty_h = W_H * raw_h
+    
+    score = 1.0 - penalty_c - penalty_f - penalty_h
+    
+    # 5. Clamp
+    score = max(0.0, min(1.0, score))
+    
+    return CoherenceReport(
+        score=score,
+        c_term=penalty_c,
+        f_term=penalty_f,
+        h_term=penalty_h,
+        raw_c=raw_c,
+        raw_f=raw_f,
+        raw_h=raw_h,
+    )

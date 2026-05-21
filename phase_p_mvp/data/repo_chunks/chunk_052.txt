@@ -1,0 +1,104 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\perception\test_text_perceiver.py
+"""
+Tests for Layer 1 (Phase 8.1): Text Perception
+
+Verifies:
+1. Deterministic translation from InputEvent to Claim
+2. Preservation of source, timestamp, confidence
+3. rejection of invalid modalities
+"""
+
+import pytest
+from datetime import datetime
+
+from src.perception.input_event import InputEvent
+from src.perception.text_perceiver import TextPerceiver
+from src.cognition.claim import Claim
+
+
+class TestTextPerceiver:
+    
+    def test_perceive_entity(self):
+        """Convert valid entity payload to Claim."""
+        perceiver = TextPerceiver()
+        now = datetime.now()
+        event = InputEvent(
+            source="owner",
+            modality="text",
+            timestamp=now,
+            payload={
+                "type": "entity",
+                "target_id": "e1",
+                "confidence": 0.9,
+                "content": "A cat",
+                "extra": "value"
+            }
+        )
+        
+        claims = perceiver.perceive(event)
+        
+        assert len(claims) == 1
+        c = claims[0]
+        assert c.type == "entity"
+        assert c.target_id == "e1"
+        assert c.confidence == 0.9
+        assert c.content == "A cat"
+        assert c.source == "owner"
+        assert c.timestamp == now
+        assert c.payload["extra"] == "value"
+
+    def test_perceive_relation(self):
+        """Convert valid relation payload to Claim."""
+        perceiver = TextPerceiver()
+        event = InputEvent(
+            source="system",
+            modality="text",
+            payload={
+                "type": "relation",
+                "target_id": "r1",
+                "confidence": 0.5,
+                "content": "e1 related to e2"
+            }
+        )
+        
+        claims = perceiver.perceive(event)
+        
+        assert len(claims) == 1
+        assert claims[0].type == "relation"
+        assert claims[0].target_id == "r1"
+
+    def test_ignore_wrong_modality(self):
+        """Ignore non-text modality."""
+        perceiver = TextPerceiver()
+        event = InputEvent(source="cam", modality="vision", payload={})
+        
+        assert perceiver.perceive(event) == []
+
+    def test_ignore_invalid_payload(self):
+        """Ignore missing IDs."""
+        perceiver = TextPerceiver()
+        event = InputEvent(
+            source="owner",
+            modality="text",
+            payload={"type": "entity"} # Missing target_id
+        )
+        
+        assert perceiver.perceive(event) == []
+
+    def test_defaults(self):
+        """Defaults for confidence/content."""
+        perceiver = TextPerceiver()
+        event = InputEvent(
+            source="owner",
+            modality="text",
+            payload={"type": "entity", "target_id": "e1"}
+        )
+        
+        c = perceiver.perceive(event)[0]
+        assert c.confidence == 0.5
+        assert "Entity e1" in c.content
+
+
+if __name__ == "__main__":
+    pytest.main([__file__, "-v"])

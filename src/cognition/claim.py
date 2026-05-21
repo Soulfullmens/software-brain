@@ -1,0 +1,43 @@
+"""
+Claim - An Assertion About Reality
+
+A claim is NOT a fact. It is an input signal that asserts something is true.
+Produced by Perception, consumed by Integration.
+
+RULES:
+- Claims are dumb assertions
+- No NLP interpretation here
+- Contains pre-resolved target IDs (Perception handles mapping)
+- Confidence comes from reliability of source/observation
+
+Claim Types:
+- entity: "Entity X exists" or "Entity X has property Y"
+- relation: "Entity X is related to Entity Y"
+- prediction: "Event X will happen"
+"""
+
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Literal, Union, Any
+
+# Locked types
+ClaimType = Literal["entity", "relation", "prediction"]
+
+
+@dataclass
+class Claim:
+    """
+    An assertion from perception about the world.
+    
+    This object bridges Perception (Layer 1) and Cognition (Layer 2).
+    It is ALREADY parsed. Integration does not parsing.
+    """
+    type: ClaimType
+    content: str               # Human-readable (for memory/logging)
+    target_id: str             # Entity ID or Relation ID this refers to
+    confidence: float          # Perception confidence (0.0 - 1.0)
+    source: str                # text_input / vision / api / owner
+    timestamp: datetime
+    
+    # Optional payload for creation events
+    payload: dict[str, Any] = None

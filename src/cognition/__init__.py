@@ -1,0 +1,18 @@
+# Cognition Module - Layer 2 (World Model)
+#
+# RESPONSIBILITY:
+# Maintain a coherent, probabilistic belief state about the world RIGHT NOW.
+#
+# DOES NOT:
+# - Store long-term history (Memory does)
+# - Decide actions (Planner does)
+# - Learn heuristics (Learning does)
+# - Interpret raw input (Perception does)
+#
+# CRITICAL RULES:
+# 1. World Model never writes to Memory directly
+# 2. World Model never trusts Memory
+# 3. World Model never plans
+# 4. World Model must tolerate contradiction
+
+from .belief_state import BeliefState

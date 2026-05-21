@@ -1,0 +1,76 @@
+{
+  "total_freeze_calls": 5,
+  "unique_caller_files": 3,
+  "unique_caller_modules": [
+    "adjustment",
+    "autonomy",
+    "killproof"
+  ],
+  "autonomy_call_count": 2,
+  "autonomy_dominance_ratio": 0.4,
+  "automatic_count": 3,
+  "manual_count": 1,
+  "error_count": 1,
+  "direct_count": 0,
+  "automatic_ratio": 0.6,
+  "manual_ratio": 0.2,
+  "has_central_router": false,
+  "dominant_file": "adjustment.py",
+  "dominant_file_ratio": 0.4,
+  "freeze_reasons": [
+    "BUDGET_EXHAUSTED",
+    "COHERENCE_COLLAPSE",
+    "CRITIQUE_OVERLOAD",
+    "GOAL_CONFLICT",
+    "MANUAL_FREEZE",
+    "PATTERN_ESCALATION"
+  ],
+  "freeze_reasons_count": 6,
+  "file_distribution": {
+    "adjustment.py": 2,
+    "autonomy.py": 2,
+    "killproof.py": 1
+  },
+  "callsites": [
+    "[error] adjustment.py:373 -> self._emergency_freeze(\"Invalid LearningMode detected\")",
+    "[automatic] adjustment.py:381 -> def _emergency_freeze(self, reason: str) -> None:",
+    "[automatic] autonomy.py:130 -> self._freeze(freeze_reason)",
+    "[automatic] autonomy.py:176 -> def _freeze(self, reason: FreezeReason) -> None:",
+    "[manual] killproof.py:156 -> self.executor.autonomy._freeze(FreezeReason.MANUAL_FREEZE)"
+  ],
+  "eval_centralized": {
+    "supported": false,
+    "contradicted": true,
+    "support_score": 0.0,
+    "contradict_score": 0.8,
+    "net_score": -0.8,
+    "evidence": [
+      "No central router: max file has only 40% of calls",
+      "3 files call _freeze() \u2014 distributed, not centralized",
+      "autonomy.py has only 40% of calls \u2014 not dominant"
+    ]
+  },
+  "eval_distributed": {
+    "supported": true,
+    "contradicted": false,
+    "support_score": 1.0,
+    "contradict_score": 0.0,
+    "net_score": 1.0,
+    "evidence": [
+      "3 distinct files call _freeze() \u2014 distributed",
+      "No central router \u2014 no single file dominates (max: 40%)",
+      "6 distinct FreezeReason values \u2014 multiple independent triggers"
+    ]
+  },
+  "eval_manual": {
+    "supported": false,
+    "contradicted": true,
+    "support_score": 0.0,
+    "contradict_score": 0.7,
+    "net_score": -0.7,
+    "evidence": [
+      "Only 20% manual \u2014 majority are automatic/error-driven",
+      "60% of freeze calls are automatic \u2014 contradicts manual-first"
+    ]
+  }
+}

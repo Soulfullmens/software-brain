@@ -1,0 +1,17 @@
+
+# FILE: C:\Users\abdul rahaman\OneDrive\Ai software\software-brain\src\memory\__init__.py
+# Memory Module
+# 
+# CONTRACT (LOCKED, NON-NEGOTIABLE):
+# - Memory stores experience, not truth.
+# - Memory can be wrong.
+# - Memory decays.
+# - Memory never overrides the World Model.
+#
+# If you ever violate this, the agent becomes delusional.
+
+from .manager import MemoryManager
+from .episodic import EpisodicMemory, Episode
+from .semantic import SemanticMemory, Fact
+from .meta import MetaMemory, Unknown
+from .short_term import ShortTermMemory

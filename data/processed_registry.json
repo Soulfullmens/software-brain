@@ -1,0 +1,14 @@
+[
+  {
+    "email_id": "msg_123",
+    "attachment_name": "sales_data.xlsx",
+    "timestamp": "2026-02-16 17:12:57",
+    "file_hash": null
+  },
+  {
+    "email_id": "msg_123",
+    "attachment_name": "sales_data.xlsx",
+    "timestamp": "2026-02-17 10:52:12",
+    "file_hash": null
+  }
+]
