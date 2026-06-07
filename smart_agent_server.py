@@ -13,14 +13,16 @@ import os
 import sys
 import time
 import asyncio
+import collections
 from concurrent.futures import ThreadPoolExecutor
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 try:
-    from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+    from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Request, Depends
     from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.security import APIKeyHeader
     from pydantic import BaseModel
     import uvicorn
 except ImportError:
@@ -29,10 +31,53 @@ except ImportError:
 
 from typing import List, Optional, Dict
 
-app = FastAPI(title="JarvisBrain v5")
-app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+# ── CORS: tighten in production via ALLOWED_ORIGINS env var ──────────────────
+_allowed_origins = os.environ.get("ALLOWED_ORIGINS", "*").split(",")
+app = FastAPI(
+    title="Software Brain API",
+    description="Autonomous AI Agent Platform",
+    version="1.0.0",
 )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
+
+# ── API KEY AUTH ──────────────────────────────────────────────────────────────
+# Set DEMO_API_KEY env var to require a key on all non-health endpoints.
+# Leave unset (or empty) to run without auth (local dev only).
+_API_KEY = os.environ.get("DEMO_API_KEY", "")
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+async def require_api_key(key: str = Depends(_api_key_header)):
+    if _API_KEY and key != _API_KEY:
+        raise HTTPException(status_code=401, detail="Invalid or missing X-API-Key header")
+
+# ── RATE LIMITER ──────────────────────────────────────────────────────────────
+# Simple in-process sliding-window rate limit: N requests per IP per minute.
+_RATE_LIMIT = int(os.environ.get("RATE_LIMIT_PER_MIN", "20"))
+_rate_buckets: Dict[str, collections.deque] = {}
+
+async def rate_limit(request: Request):
+    if _RATE_LIMIT <= 0:
+        return  # disabled
+    ip = request.client.host if request.client else "unknown"
+    now = time.time()
+    bucket = _rate_buckets.setdefault(ip, collections.deque())
+    # Drop timestamps older than 60 seconds
+    while bucket and bucket[0] < now - 60:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded: {_RATE_LIMIT} requests/minute per IP",
+        )
+    bucket.append(now)
+
+# Combined dependency for protected endpoints
+_protected = [Depends(rate_limit), Depends(require_api_key)]
 
 # -- Global Agent --
 brain = None
@@ -159,7 +204,7 @@ _executor = ThreadPoolExecutor(max_workers=2)
 
 # ===== MAIN: AUTONOMOUS CHAT (streaming with step progress) =====
 
-@app.post("/api/smart-chat/stream")
+@app.post("/api/smart-chat/stream", dependencies=_protected)
 async def smart_chat_stream(req: ChatRequest):
     b = get_brain()
     import queue, threading
