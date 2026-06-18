@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Create data directories and non-root user for security
-RUN groupadd -r agent && useradd -r -g agent agent && \\
-    mkdir -p agent_data/crm agent_data/scheduling logs config && \\
+RUN groupadd -r agent && useradd -r -g agent agent && \
+    mkdir -p agent_data/crm agent_data/scheduling logs config && \
     chown -R agent:agent /app
 
 # Drop to non-root user
