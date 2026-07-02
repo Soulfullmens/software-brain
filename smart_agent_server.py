@@ -538,10 +538,10 @@ async def learn_skill(req: SkillRequest):
     return {"result": result}
 
 
-# ===== STATUS =====
+# ===== FULL STATUS (detailed) =====
 
-@app.get("/api/status")
-async def status():
+@app.get("/api/full-status")
+async def full_status():
     b = get_brain()
     return b.full_status()
 
@@ -1585,6 +1585,7 @@ if __name__ == "__main__":
     _threading.Thread(target=_background_knowledge_bootstrap, daemon=True).start()
 
     # Skip pre-warming — keeps laptop cool, Chrome-first approach rarely needs Ollama
-    print("Ready! Open http://localhost:8000")
+    _port = int(os.environ.get("PORT", 8000))
+    print(f"Ready! Open http://localhost:{_port}")
     print()
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=_port, log_level="info")

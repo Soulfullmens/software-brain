@@ -16,18 +16,19 @@ COPY . .
 
 # Create data directories and non-root user for security
 RUN groupadd -r agent && useradd -r -g agent agent && \
-    mkdir -p agent_data/crm agent_data/scheduling logs config && \
+    mkdir -p agent_data/crm agent_data/scheduling agent_data/smart_demo logs config && \
     chown -R agent:agent /app
 
 # Drop to non-root user
 USER agent
 
-# Expose dashboard port
-EXPOSE 8000
+# Cloud Run injects PORT env var (default 8080)
+ENV PORT=8080
+EXPOSE ${PORT}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
-    CMD curl -f http://localhost:8000/api/status || exit 1
+    CMD curl -f http://localhost:${PORT}/api/status || exit 1
 
-# Run dashboard
-CMD ["uvicorn", "src.business.dashboard:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the main API server — listen on $PORT for Cloud Run
+CMD uvicorn smart_agent_server:app --host 0.0.0.0 --port ${PORT}
